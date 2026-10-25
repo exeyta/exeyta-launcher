@@ -148,9 +148,12 @@ def main():
 
     payload = {
         "tag_name": tag,
-        "name": "Exeyta Launcher %s — альфа" % tag,
+        # prerelease=False: иначе /releases/latest/download/... на сайте
+        # НЕ увидит альфа-релиз («latest» игнорирует prerelease).
+        # Альфа явно указана в названии и описании.
+        "name": "Exeyta Launcher %s — АЛЬФА" % tag,
         "body": body,
-        "prerelease": True,
+        "prerelease": False,
     }
     rel = api("POST", "https://api.github.com/repos/%s/releases" % repo,
               token, payload=payload)
