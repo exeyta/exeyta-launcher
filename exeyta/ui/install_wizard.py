@@ -13,6 +13,9 @@ from exeyta_shared import theme
 
 from .controls import FxButton, PanelBox, add_label, apply_glow, rounded_path
 
+# потоки, переживающие закрытие окна мастера (нельзя убивать работающий QThread)
+_KEEP_WORKERS = []
+
 
 class _Stage(QWidget):
     """Строка прогресса: подпись + полоса + процент + статус."""
@@ -177,6 +180,16 @@ class InstallWizard(QDialog):
 
     def _close_ok(self):
         self.close()
+
+    def closeEvent(self, event):
+        # окно могут закрыть (Alt+F4) во время скачивания: отменяем воркер
+        # и отвязываем его, чтобы работающий QThread не был уничтожен
+        w = getattr(self, "_worker", None)
+        if w is not None and w.isRunning():
+            w.cancel()
+            w.setParent(None)
+            _KEEP_WORKERS.append(w)
+        super().closeEvent(event)
 
     # --- окно --------------------------------------------------------------
     def paintEvent(self, event=None):

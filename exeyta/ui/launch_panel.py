@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QLineEdit,
                              QWidget)
 
 from exeyta_shared import theme
+from exeyta_shared.animations import finish_fade
 
 from .controls import (CardPanel, FxButton, GradientSlider, PanelBox,
                        add_label, apply_glow, draw_base, w)
@@ -79,6 +80,7 @@ class _ClickZone(QWidget):
         self.setStyleSheet("background: transparent;")
 
     def mousePressEvent(self, event):
+        finish_fade(self)   # зона клика внутри fade-секции
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)

@@ -13,7 +13,7 @@ from pathlib import Path
 
 APP_NAME = "Exeyta"
 LAUNCHER_EXE = "ExeytaLauncher.exe"
-VERSION = "1.0.0-alpha.2"   # альфа-версия
+VERSION = "1.0.0-alpha.3"   # альфа-версия
 CREATE_NO_WINDOW = 0x08000000
 
 

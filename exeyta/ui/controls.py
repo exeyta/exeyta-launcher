@@ -11,7 +11,8 @@ from PyQt5.QtGui import (QColor, QFont, QFontMetricsF, QLinearGradient,
 from PyQt5.QtWidgets import QGraphicsDropShadowEffect, QWidget
 
 from exeyta_shared import theme
-from exeyta_shared.animations import HoverFader, ease_out_cubic, safe_stop
+from exeyta_shared.animations import (HoverFader, ease_out_cubic,
+                                       finish_fade, safe_stop)
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +221,7 @@ class FxButton(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
+        finish_fade(self)   # кнопка не должна «исчезать» во время fade секции
         if event.button() == Qt.LeftButton:
             self._animate_press(1.0, 90)
         super().mousePressEvent(event)
@@ -370,6 +372,7 @@ class NavButton(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
+        finish_fade(self)
         if event.button() == Qt.LeftButton:
             self._pressed = True
             self.update()
@@ -475,6 +478,7 @@ class GradientSlider(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
+        finish_fade(self)
         if event.button() == Qt.LeftButton:
             self._set_from_pos(event.x())
         super().mousePressEvent(event)
@@ -556,6 +560,7 @@ class ToggleSwitch(QWidget):
             self.toggled.emit(on)
 
     def mousePressEvent(self, event):
+        finish_fade(self)
         if event.button() == Qt.LeftButton:
             self.set_on(not self._on)
         super().mousePressEvent(event)
@@ -714,6 +719,7 @@ class PaletteSwatch(QWidget):
         return self._color
 
     def mousePressEvent(self, event):
+        finish_fade(self)
         if event.button() == Qt.LeftButton:
             self.clicked.emit(self._color)
         super().mousePressEvent(event)

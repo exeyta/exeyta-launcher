@@ -55,21 +55,78 @@ def anim_property(target, prop_name, start, end, ms=HOVER_MS, on_done=None):
 
 
 def fade_in(widget, ms=PAGE_MS):
-    """Плавное появление (opacity 0 -> 1)."""
+    """Плавное появление (opacity 0 -> 1).
+
+    ВАЖНО: QGraphicsOpacityEffect снимается сразу после окончания анимации —
+    постоянный эффект у секции ломал рендер дочерних кнопок с
+    QGraphicsDropShadowEffect (ИГРАТЬ «исчезал» при зажатии, известный
+    конфликт child-effect внутри ancestor-effect в Qt).
+    """
     from PyQt5.QtWidgets import QGraphicsOpacityEffect
+
+    # если предыдущая fade-анимация ещё идёт — гасим её, чтобы её
+    # завершение не сняло эффект новой анимации
+    prev = getattr(widget, "_fade_anim", None)
+    if prev is not None:
+        try:
+            prev.stop()          # finished -> cleanup старой (она уже заменена)
+        except RuntimeError:
+            pass
+
     eff = widget.graphicsEffect()
     if not isinstance(eff, QGraphicsOpacityEffect):
         eff = QGraphicsOpacityEffect(widget)
         widget.setGraphicsEffect(eff)
     eff.setOpacity(0.0)
+
     anim = QPropertyAnimation(eff, b"opacity")
     anim.setDuration(int(ms))
     anim.setStartValue(0.0)
     anim.setEndValue(1.0)
     ease_out_cubic(anim)
     anim.setParent(widget)          # не даём GC оборвать анимацию
+    widget._fade_anim = anim
+
+    def _done(*_a, anim=anim, eff=eff):
+        if getattr(widget, "_fade_anim", None) is not anim:
+            return                  # уже запущена новая fade-анимация
+        widget._fade_anim = None
+        try:
+            eff.setOpacity(1.0)
+            widget.setGraphicsEffect(None)   # снимаем навсегда
+        except RuntimeError:
+            pass
+
+    anim.finished.connect(_done)
     anim.start(QPropertyAnimation.DeleteWhenStopped)
     return anim
+
+
+def finish_fade(widget):
+    """Мгновенно завершает fade-анимацию и СНИМАЕТ эффект секции.
+
+    Вызывается из обработчиков нажатия: пока у секции активен
+    QGraphicsOpacityEffect, зажатие кнопок с glow (ИГРАТЬ) давало
+    конфликт child-effect/ancestor-effect в Qt — кнопка «исчезала».
+    Снимаем эффект принудительно (stop() не гарантирует finished()).
+    """
+    w = widget
+    while w is not None:
+        anim = getattr(w, "_fade_anim", None)
+        if anim is not None:
+            w._fade_anim = None        # не дать cleanup'у сделать двойную работу
+            try:
+                anim.stop()
+            except RuntimeError:
+                pass
+        eff = w.graphicsEffect()
+        if eff is not None and type(eff).__name__ == "QGraphicsOpacityEffect":
+            try:
+                eff.setOpacity(1.0)
+                w.setGraphicsEffect(None)
+            except RuntimeError:
+                pass
+        w = w.parentWidget()
 
 
 def slide_up(widget, dy=18, ms=PAGE_MS):
