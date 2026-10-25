@@ -1,0 +1,201 @@
+/* ============================================================
+   Exeyta Launcher — общий QSS (диалоги, вводы, прогресс, скролл).
+   Цвета соответствуют assets/launcher-ui.svg (exeyta_shared/theme.py).
+   Основная визуальная часть (карточки, кнопки, сайдбар) рисуется
+   нативными Qt-виджетами вручную — здесь только то, что проще
+   описать стилями.
+   ============================================================ */
+
+* {
+    font-family: "Segoe UI", Arial;
+}
+
+QToolTip {
+    background: #24142e;
+    color: #fff8f2;
+    border: 1px solid #ffb703;
+    padding: 5px 9px;
+    border-radius: 7px;
+    font-size: 12px;
+}
+
+QDialog {
+    background: #1a0c16;
+}
+
+QLabel {
+    background: transparent;
+    color: #fff8f2;
+}
+
+QLabel#dlgSub, QLabel#wzMsg, QLabel#dlgHint {
+    color: #b9a3b4;
+}
+QLabel#dlgHint {
+    color: #ff4d6d;
+}
+QLabel#dlgTitle, QLabel#wzTitle {
+    color: #fff8f2;
+    font-size: 20px;
+    font-weight: 700;
+}
+QLabel#wzStageTitle {
+    color: #ffd0e0;
+    font-size: 14px;
+    font-weight: 700;
+}
+QLabel#wzPct {
+    color: #ffe7b0;
+    font-size: 13px;
+    font-weight: 700;
+}
+QLabel#wzVersion {
+    color: #86efac;
+    font-size: 13px;
+}
+QLabel#wzError {
+    color: #ff4d6d;
+    font-size: 13px;
+}
+
+QLineEdit {
+    background: #1c1024;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: #fff8f2;
+    font-size: 14px;
+    selection-background-color: #ffb703;
+    selection-color: #1a0a10;
+}
+QLineEdit:focus {
+    border: 1px solid #ffb703;
+}
+QLineEdit:disabled {
+    color: #8d7084;
+}
+
+QListWidget {
+    background: #120910;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 6px;
+    color: #fff8f2;
+    font-size: 14px;
+    outline: none;
+}
+QListWidget::item {
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+QListWidget::item:hover {
+    background: rgba(255,255,255,0.06);
+}
+QListWidget::item:selected {
+    background: rgba(255,183,3,0.09);
+    color: #ffe7b0;
+    border: 1px solid #ffb703;
+}
+
+QListWidget#versionPopup {
+    background: #1c1024;
+    border: 1px solid #ffb703;
+    border-radius: 12px;
+    padding: 6px;
+    font-size: 15px;
+}
+QListWidget#versionPopup::item {
+    padding: 8px 12px;
+}
+QListWidget#versionPopup::item:selected {
+    background: rgba(255,183,3,0.09);
+    color: #ffe7b0;
+    border: none;
+}
+
+QProgressBar {
+    background: #2a1834;
+    border: none;
+    border-radius: 5px;
+    text-align: center;
+}
+QProgressBar#progressWiz {
+    background: #2a1834;
+    border: none;
+    border-radius: 7px;
+    height: 14px;
+}
+QProgressBar::chunk {
+    border-radius: 5px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #ffb703, stop:1 #ff4d6d);
+}
+QProgressBar#progressWiz::chunk {
+    border-radius: 7px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #ffb703, stop:1 #ff4d6d);
+}
+
+QCheckBox {
+    color: #e7d5df;
+    font-size: 14px;
+    spacing: 10px;
+    background: transparent;
+}
+QCheckBox::indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.19);
+    background: #1c1024;
+}
+QCheckBox::indicator:checked {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #ffe08a, stop:0.42 #ff8a3d, stop:1 #ff4d88);
+    border: 1px solid #ffb703;
+}
+QCheckBox:hover {
+    color: #fff8f2;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical {
+    background: #3a2148;
+    border-radius: 5px;
+    min-height: 28px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #ffb703;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    height: 0;
+    width: 0;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+    margin: 2px;
+}
+QScrollBar::handle:horizontal {
+    background: #3a2148;
+    border-radius: 5px;
+    min-width: 28px;
+}
+
+QPlainTextEdit, QTextEdit {
+    background: #120910;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    color: #e7d5df;
+    font-size: 13px;
+    padding: 8px;
+    selection-background-color: #ffb703;
+    selection-color: #1a0a10;
+}

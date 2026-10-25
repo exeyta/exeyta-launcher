@@ -1,0 +1,37 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- пользовательские/рабочие данные (не в коде) ---
+# создаётся у пользователя рядом с exe, содержит личные пути
+config.json
+# %APPDATA%/Exeyta — живёт вне репозитория (страховка)
+accounts.json
+*.skinbak
+.exeyta_*
+hs_err*.log
+*.log
+*.log.old
+
+# --- скачанные игры/Java и сборки (крупные, не код) ---
+game/
+runtime/
+dist/
+build/*
+!build/*.spec
+!build/*.py
+!build/*.bat
+
+# --- сгенерированные bat-файлы запуска игры ---
+scripts/*
+!scripts/.gitkeep
+
+# --- моды ---
+mods/*
+!mods/.gitkeep
+
+# --- служебное ---
+.vscode/
+.idea/
+Thumbs.db

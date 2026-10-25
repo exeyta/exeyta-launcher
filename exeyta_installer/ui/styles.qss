@@ -1,0 +1,102 @@
+/* ============================================================
+   ExeytaSetup — стили установщика (та же тема, что у лаунчера;
+   цвета — из exeyta_shared/theme.py / assets/launcher-ui.svg).
+   ============================================================ */
+
+* {
+    font-family: "Segoe UI", Arial;
+}
+
+QWidget {
+    background: transparent;
+    color: #fff8f2;
+}
+
+QToolTip {
+    background: #24142e;
+    color: #fff8f2;
+    border: 1px solid #ffb703;
+    padding: 5px 9px;
+    border-radius: 7px;
+    font-size: 12px;
+}
+
+QLabel {
+    background: transparent;
+    color: #fff8f2;
+}
+
+QLineEdit {
+    background: #1c1024;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #fff8f2;
+    font-size: 14px;
+    selection-background-color: #ffb703;
+    selection-color: #1a0a10;
+}
+QLineEdit:focus {
+    border: 1px solid #ffb703;
+}
+
+QPlainTextEdit {
+    background: #120910;
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    color: #e7d5df;
+    font-size: 13px;
+    padding: 8px;
+    selection-background-color: #ffb703;
+    selection-color: #1a0a10;
+}
+
+QCheckBox {
+    color: #e7d5df;
+    font-size: 14px;
+    spacing: 10px;
+}
+QCheckBox::indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.19);
+    background: #1c1024;
+}
+QCheckBox::indicator:checked {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+        stop:0 #ffe08a, stop:0.42 #ff8a3d, stop:1 #ff4d88);
+    border: 1px solid #ffb703;
+}
+QCheckBox:hover {
+    color: #fff8f2;
+}
+
+QProgressBar#progressWiz {
+    background: #2a1834;
+    border: none;
+    border-radius: 8px;
+}
+QProgressBar#progressWiz::chunk {
+    border-radius: 8px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+        stop:0 #ffb703, stop:1 #ff4d6d);
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical {
+    background: #3a2148;
+    border-radius: 5px;
+    min-height: 28px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #ffb703;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    height: 0;
+    width: 0;
+}
