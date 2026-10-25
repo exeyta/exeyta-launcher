@@ -132,7 +132,10 @@ def perform_install(dest: Path, progress=None, cancel=None, desktop=True,
 
     payload = collect_payload()
     files = payload["files"]
-    total = len(files) + 4  # + структура каталогов + конфиги
+    # файлы + структура каталогов (DIRS) + config.json/install.json
+    total = len(files) + len(DIRS) + 2
+    if total < 1:
+        total = 1
 
     dest.mkdir(parents=True, exist_ok=True)
 

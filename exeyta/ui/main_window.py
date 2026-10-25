@@ -6,8 +6,10 @@
   верхняя полоска 3px sunH, сайдбар 280, «Запуск» 430x648 (300,26),
   «Редактор скина» 1090x648 (746,26), «Настройки» 1536x320 (300,690).
 
-Один экран (dashboard): навигация меняет активный пункт, композиция
-остаётся как на макете.
+Один раздел за раз (вкладки в сайдбаре): Главная → приветствие/сводка/ИГРАТЬ,
+«Играть» → панель «Запуск», «Скины» → редактор, «Настройки» → настройки.
+Каждый раздел раскрывается с анимацией (fade + slide, OutCubic); при старте
+открыта «Главная». Мастер установки и диалоги — модальные окна.
 """
 from PyQt5.QtCore import QRectF, Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QPen
@@ -22,6 +24,7 @@ from ..core.java_resolver import describe, java_exe, major_for
 from ..core.minecraft_installer import is_client_installed
 from ..core.portable_java import is_installed
 from .controls import add_label, rounded_path
+from .home_panel import HomePanel
 from .launch_panel import LaunchPanel
 from .settings_panel import SettingsPanel
 from .sidebar import AccountsDialog, Sidebar
@@ -93,7 +96,7 @@ def QPointF_(x, y):
 
 
 class MainWindow(QWidget):
-    """Единственное окно лаунчера (dashboard, один экран)."""
+    """Единственное окно лаунчера: вкладки-разделы с анимацией."""
 
     def __init__(self, k=1.0, parent=None):
         super().__init__(parent)
@@ -116,7 +119,7 @@ class MainWindow(QWidget):
 
         self._build()
         self.sidebar.set_account(self.accounts.current())
-        self.sidebar.set_active("skins")   # активный пункт как на макете
+        self.sidebar.set_active("home")   # стартовый раздел — «Главная»
 
         # ленивая инициализация редактора скина (после первого кадра)
         QTimer.singleShot(0, self._build_skin_editor)
@@ -126,6 +129,21 @@ class MainWindow(QWidget):
         QTimer.singleShot(900, self._autostart)
 
     # ------------------------------------------------------------------ UI
+    def _center(self, w_, h_):
+        """Центрирует раздел в рабочей области (правее сайдбара 280)."""
+        k = self.k
+        x = round(280 * k + ((1864 - 280) * k - w_) / 2)
+        y = round((1036 * k - h_) / 2)
+        return x, y
+
+    def _section(self, key):
+        return {
+            "home": getattr(self, "home", None),
+            "play": getattr(self, "launch", None),
+            "skins": getattr(self, "skin_editor", None),
+            "settings": getattr(self, "settings", None),
+        }.get(key)
+
     def _build(self):
         k = self.k
 
@@ -134,19 +152,28 @@ class MainWindow(QWidget):
         self.sidebar.nav_clicked.connect(self._nav)
         self.sidebar.gear_clicked.connect(self._accounts)
 
+        # «Главная» — стартовый раздел
+        self.home = HomePanel(self.cfg, k=k, parent=self)
+        self.home.move(*self._center(round(760 * k), round(560 * k)))
+        self.home.play_clicked.connect(self._play)
+        self.home.version_clicked.connect(self._open_versions)
+        self._active_tab = "home"
+
         self.launch = LaunchPanel(self.cfg, k=k, parent=self)
-        self.launch.move(round(300 * k), round(26 * k))
+        self.launch.move(*self._center(round(430 * k), round(648 * k)))
         self.launch.play_clicked.connect(self._play)
         self.launch.version_chosen.connect(self._version_chosen)
         self.launch.download_version.connect(self._open_install)
         self.launch.memory_changed.connect(
             lambda mb: self.settings.set_memory_mb(mb))
+        self.launch.hide()   # до выбора вкладки показана «Главная»
 
         self.settings = SettingsPanel(self.cfg, k=k, parent=self)
-        self.settings.move(round(300 * k), round(690 * k))
+        self.settings.move(*self._center(round(1536 * k), round(320 * k)))
         self.settings.memory_changed.connect(
             lambda mb: self.launch.set_memory_mb(mb))
         self.settings.folder_chosen.connect(self._folder_chosen)
+        self.settings.hide()
 
         # кнопки окна (в свободной полосе y=5..23)
         self.btn_min = _GlyphBtn("min", k=k, parent=self)
@@ -157,28 +184,52 @@ class MainWindow(QWidget):
         self.btn_close.clicked.connect(self.close)
 
     def _build_skin_editor(self):
-        """Lazy init: редактор скина строится после первого кадра."""
+        """Lazy init: редактор скина строится после первого кадра (скрытым)."""
         if self.skin_editor is not None:
             return
         from .skin_editor import SkinEditorPanel
         self.skin_editor = SkinEditorPanel(self.cfg, self.accounts,
                                            k=self.k, parent=self)
-        self.skin_editor.move(round(746 * self.k), round(26 * self.k))
-        self.skin_editor.show()
+        self.skin_editor.move(*self._center(round(1090 * self.k),
+                                            round(648 * self.k)))
+        self.skin_editor.hide()   # покажет _nav при выборе вкладки «Скины»
         self.skin_editor.load_account_skin()
 
     # ------------------------------------------------------------ навигация
     def _nav(self, key):
+        """Переключает раздел с анимацией раскрытия (fade + slide, OutCubic)."""
+        from exeyta_shared.animations import fade_in, slide_up
         self.sidebar.set_active(key)
-        # композиция одного экрана не меняется; мягко поднимаем блок
-        target = {
-            "home": self.launch,
-            "play": self.launch,
-            "skins": self.skin_editor,
-            "settings": self.settings,
-        }.get(key)
-        if target is not None:
-            target.raise_()
+        if key == "skins" and self.skin_editor is None:
+            self._build_skin_editor()
+        if key == self._active_tab:
+            return
+        prev = self._section(self._active_tab)
+        target = self._section(key)
+        if target is None:
+            return
+        if prev is not None and prev is not target:
+            prev.hide()
+        self._active_tab = key
+        target.show()
+        target.raise_()
+        fade_in(target, ms=320)
+        slide_up(target, dy=18, ms=320)
+
+    def _open_versions(self):
+        """Диалог выбора версии, открытый со страницы «Главная»."""
+        self.launch._open_versions()
+
+    def _set_status(self, text, color="#86efac"):
+        """Статус дублируется в активных разделах (Главная + Запуск)."""
+        self.launch.set_status(text, color)
+        if getattr(self, "home", None) is not None:
+            self.home.set_status(text, color)
+
+    def _set_busy(self, flag):
+        self.launch.set_busy(flag)
+        if getattr(self, "home", None) is not None:
+            self.home.set_busy(flag)
 
     def _accounts(self):
         dlg = AccountsDialog(self.accounts, self)
@@ -211,13 +262,21 @@ class MainWindow(QWidget):
         self.launch.set_java(describe(major))
         self.launch.set_folder(str(self.cfg.game_dir))
         self.launch.set_mods(str(self.cfg.get("mods_mode") or "Из коробки"))
+        # раздел «Главная» — та же сводка и приветствие
+        if getattr(self, "home", None) is not None:
+            cur = self.accounts.current() or {}
+            self.home.set_greeting(cur.get("name") or "Exeyta")
+            self.home.set_version(version)
+            self.home.set_java(describe(major))
+            self.home.set_memory(self.launch.lbl_mem.text())
+            self.home.set_folder(str(self.cfg.game_dir))
         if not self.busy:
             if ready:
-                self.launch.set_status("сессия готова", "#86efac")
+                self._set_status("сессия готова", "#86efac")
             elif client_ok or java_ok:
-                self.launch.set_status("докачка компонентов…", "#ffb703")
+                self._set_status("докачка компонентов…", "#ffb703")
             else:
-                self.launch.set_status("требуется установка", "#ffb703")
+                self._set_status("требуется установка", "#ffb703")
         self.settings.set_java("Java %d Temurin" % major,
                                str(java_exe(major)))
         return ready
@@ -238,13 +297,13 @@ class MainWindow(QWidget):
             return
         from .install_wizard import InstallWizard
         self._install_ok = False
-        self.launch.set_busy(True)
-        self.launch.set_status("установка Minecraft и Java…", "#ffb703")
+        self._set_busy(True)
+        self._set_status("установка Minecraft и Java…", "#ffb703")
         w = InstallWizard(version, game_dir=self.cfg.game_dir, parent=self)
         self._wizard = w
         w.finished_ok.connect(self._install_succeeded)
         w.finished.connect(self._wizard_closed)
-        w.show()
+        w.exec_()   # модальное окно: ввод блокируется, фон живёт в QThread
 
     def _install_succeeded(self):
         self._install_ok = True
@@ -253,7 +312,7 @@ class MainWindow(QWidget):
         ok = self._install_ok
         self._install_ok = False
         self._wizard = None
-        self.launch.set_busy(False)
+        self._set_busy(False)
         self._refresh_state()
         if ok and self._pending_play:
             self._pending_play = False
@@ -283,17 +342,17 @@ class MainWindow(QWidget):
             self._open_install(version)
             return
         except Exception as e:
-            self.launch.set_status("ошибка: %s" % str(e)[:60], "#ff4d6d")
+            self._set_status("ошибка: %s" % str(e)[:60], "#ff4d6d")
             return
 
         self.busy = True
-        self.launch.set_busy(True)
+        self._set_busy(True)
 
         # 1) автоматически ставим скин активного аккаунта в клиентский jar
         #    (offline-фолбэк ванили) — в QThread, UI не блокируется
         from ..workers.download_worker import SkinPatchWorker
         skin = (account or {}).get("skin") or ""
-        self.launch.set_status("применение скина…", "#ffd0e0")
+        self._set_status("применение скина…", "#ffd0e0")
         patcher = SkinPatchWorker(version, skin,
                                   game_dir=self.cfg.game_dir, parent=self)
         self._patcher = patcher
@@ -310,7 +369,7 @@ class MainWindow(QWidget):
     def _start_game_worker(self, bat):
         # 2) запуск .bat оркестратором (QThread, логи в %APPDATA%/Exeyta/logs)
         from ..core.game_launcher import GameWorker
-        self.launch.set_status("запуск игры…", "#86efac")
+        self._set_status("запуск игры…", "#86efac")
         worker = GameWorker(bat, cwd=cfgmod.root_dir(), parent=self)
         worker.log_line.connect(self._game_log)
         worker.game_finished.connect(self._game_finished)
@@ -322,19 +381,19 @@ class MainWindow(QWidget):
         text = line.strip()
         if len(text) > 58:
             text = text[:57] + "…"
-        self.launch.set_status(text, "#c9a8b8")
+        self._set_status(text, "#c9a8b8")
 
     def _game_finished(self, rc):
         self.busy = False
-        self.launch.set_busy(False)
+        self._set_busy(False)
         if rc == 0:
-            self.launch.set_status("сессия готова", "#86efac")
+            self._set_status("сессия готова", "#86efac")
         self._refresh_state()
 
     def _game_failed(self, message):
         self.busy = False
-        self.launch.set_busy(False)
-        self.launch.set_status(str(message)[:58], "#ff4d6d")
+        self._set_busy(False)
+        self._set_status(str(message)[:58], "#ff4d6d")
 
     # ----------------------------------------------------------------- окно
     def paintEvent(self, event=None):

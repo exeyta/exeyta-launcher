@@ -46,6 +46,7 @@ class _Stage(QWidget):
 
     def set_progress(self, done, total, message):
         pct = 0 if total <= 0 else int(done * 100 / total)
+        pct = max(0, min(100, pct))          # защита от «102%»
         self.bar.setValue(pct)
         self.pct.setText("%d%%" % pct)
         self.msg.setText(message)

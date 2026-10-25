@@ -13,6 +13,7 @@ from pathlib import Path
 
 APP_NAME = "Exeyta"
 LAUNCHER_EXE = "ExeytaLauncher.exe"
+VERSION = "1.0.0-alpha.2"   # альфа-версия
 CREATE_NO_WINDOW = 0x08000000
 
 
@@ -69,7 +70,7 @@ def write_install_json(install_dir: Path, files_count=0, source=""):
         "installed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "files": int(files_count),
         "source": source,
-VERSION = "1.0.0-alpha.1"   # альфа-версия
+        "version": VERSION,
     }
     try:
         (install_dir / "install.json").write_text(
