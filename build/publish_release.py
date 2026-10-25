@@ -99,6 +99,53 @@ def api(method, url, token, payload=None, raw=None, content_type="application/js
         die("сетевая ошибка GitHub: %s" % e)
 
 
+def upload_asset(upload_url, path: Path, token):
+    """Загрузка ассета релиза: raw через curl + name/size в URL.
+
+    GitHub возвращает транзиентные 408/502 на больших файлах — поэтому
+    несколько попыток с паузой. Токен — во временном файле заголовка
+    (не в argv и не в лог).
+    """
+    import shutil
+    import tempfile
+    import time as _time
+    size = path.stat().st_size
+    url = "%s?name=%s&size=%d" % (upload_url.split("{", 1)[0], path.name, size)
+    curl = shutil.which("curl")
+    if not curl:
+        # фолбэк: urllib (может дать 408 на больших файлах)
+        return api("POST", url, token, raw=path.read_bytes(),
+                   content_type="application/octet-stream")
+    hdr = Path(tempfile.gettempdir()) / "exeyta_hdr.txt"
+    hdr.write_text("Authorization: Bearer %s\n"
+                   "Content-Type: application/octet-stream\n" % token)
+    last = ""
+    try:
+        for attempt in range(1, 5):
+            r = subprocess.run(
+                [curl, "-sS", "-L", "--fail-with-body", "--max-time", "1200",
+                 "-X", "POST", "-H", "@%s" % hdr,
+                 "--data-binary", "@%s" % path, url],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace")
+            if r.returncode == 0:
+                try:
+                    return json.loads(r.stdout)
+                except Exception:
+                    die("загрузка: неожиданный ответ: %r"
+                        % (r.stdout or "")[:300])
+            last = (r.stdout or "") + (r.stderr or "")
+            print("  попытка %d не удалась (%s), повтор через 10 с..."
+                  % (attempt, last[:120].replace("\n", " ")), flush=True)
+            _time.sleep(10)
+        die("загрузка ассета не удалась: %s" % last[:400])
+    finally:
+        try:
+            hdr.unlink()
+        except Exception:
+            pass
+
+
 def git_publish(tag, notes):
     status = run(["git", "status", "--porcelain"])
     if status.stdout.strip():
@@ -159,13 +206,11 @@ def main():
               token, payload=payload)
     print("релиз создан:", rel.get("html_url"), flush=True)
 
-    # 3) загрузка ассета (89 МБ)
+    # 3) загрузка ассета (85 МБ) — через curl: GitHub приемлет только
+    #    потоковую загрузку (urllib с большим буфером даёт 408)
     upload_url = rel["upload_url"].split("{", 1)[0]
-    data = SETUP.read_bytes()
-    print("загрузка %s (%.1f МБ)..." % (SETUP.name, len(data) / 1048576),
-          flush=True)
-    api("POST", "%s?name=%s" % (upload_url, SETUP.name), token, raw=data,
-        content_type="application/octet-stream")
+    print("загрузка %s..." % SETUP.name, flush=True)
+    upload_asset(upload_url, SETUP, token)
     print("ассет загружен", flush=True)
 
     print("\nГОТОВО:")
