@@ -258,6 +258,8 @@ class MainWindow(QWidget):
         self._wizard = None
         self._install_ok = False
         self._pending_play = False
+        self._cancel_requested = False
+        self._game_error = False
         self._drag_pos = None
         self.skin_editor = None
         self._active_tab = "home"
@@ -486,7 +488,12 @@ class MainWindow(QWidget):
         from ..workers.download_worker import VersionsWorker
         self._versions_worker = VersionsWorker(self)
         self._versions_worker.loaded.connect(self._versions_loaded)
+        self._versions_worker.failed.connect(self._versions_failed)
         self._versions_worker.start()
+
+    def _versions_failed(self, message):
+        self.launch.lbl_status.setText(
+            "Не удалось загрузить список версий: %s" % str(message)[:80])
 
     def _versions_loaded(self, ids):
         self.launch.set_version_ids(ids)
@@ -553,6 +560,8 @@ class MainWindow(QWidget):
             return
 
         self._set_busy(True)
+        self._cancel_requested = False
+        self._game_error = False
         self.console.append_log("=== Запуск Minecraft %s ===" % version)
 
         from ..workers.download_worker import SkinPatchWorker
@@ -564,6 +573,12 @@ class MainWindow(QWidget):
 
         def _after_patch(*_a):
             self._patcher = None
+            if self._cancel_requested:
+                self._cancel_requested = False
+                self._set_busy(False)
+                self._set_status("игра остановлена", "#c9a45c")
+                self.console.append_log("Запуск отменён пользователем")
+                return
             self._start_game_worker(bat)
 
         patcher.done.connect(_after_patch)
@@ -585,12 +600,14 @@ class MainWindow(QWidget):
         patcher = getattr(self, "_patcher", None)
         if patcher is not None and patcher.isRunning():
             try:
+                self._cancel_requested = True
                 patcher.cancel()
                 stopped = True
             except Exception:
                 pass
         if self._game is not None and self._game.isRunning():
             try:
+                self._cancel_requested = True
                 self._game.cancel()
                 stopped = True
             except Exception:
@@ -608,6 +625,8 @@ class MainWindow(QWidget):
         self._set_status(short, "#8b8f98")
 
     def _game_finished(self, rc):
+        was_error = self._game_error
+        self._game_error = False
         self._set_busy(False)
         if rc == 0:
             self._set_status("сессия готова", "#7fbf8f")
@@ -615,8 +634,12 @@ class MainWindow(QWidget):
             self._set_status("игра остановлена", "#c9a45c")
         self.console.set_running(False)
         self._refresh_state()
+        if was_error:
+            self._set_status("игра завершилась с ошибкой — см. консоль",
+                             "#d97a7a")
 
     def _game_failed(self, message):
+        self._game_error = True
         self._set_busy(False)
         self._set_status(str(message)[:70], "#d97a7a")
         self.console.append_log("Ошибка: %s" % message)
