@@ -6,7 +6,8 @@
 """
 from PyQt5.QtCore import QRectF, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QPen
-from PyQt5.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (QLabel, QMessageBox, QStackedWidget,
+                             QVBoxLayout, QWidget)
 
 from exeyta_shared import theme
 from exeyta_shared.animations import HoverFader, fade_in
@@ -187,14 +188,20 @@ class WizardWindow(QWidget):
             self.btn_next.set_text("Далее")
             self.btn_next.set_disabled(False)
             self.btn_back.set_disabled(True)
+            self.btn_back.show()
             self.btn_cancel.set_text("Отмена")
+            self.btn_cancel.show()
         elif idx in (1, 2, 3):
             self.btn_next.set_text("Далее" if idx < 3 else "Установить")
             self.btn_next.set_disabled(not can_next)
             self.btn_back.set_disabled(False)
+            self.btn_back.show()
+            self.btn_cancel.set_text("Отмена")
+            self.btn_cancel.show()
         elif idx == 4:
             # прогресс: «Назад» скрыт; при ошибке — «Повторить»
             self.btn_back.set_disabled(True)
+            self.btn_back.hide()
             if self._error:
                 self.btn_next.set_text("Повторить")
                 self.btn_next.set_disabled(False)
@@ -202,11 +209,14 @@ class WizardWindow(QWidget):
             else:
                 self.btn_next.hide()
             self.btn_cancel.set_text("Отмена")
+            self.btn_cancel.show()
         else:
             self.btn_next.set_text("Готово")
             self.btn_next.set_disabled(False)
-            self.btn_back.set_disabled(True)
             self.btn_next.show()
+            # на последнем шаге достаточно одной кнопки «Готово»
+            self.btn_back.hide()
+            self.btn_cancel.hide()
         if idx != 4:
             self.btn_next.show()
 
@@ -219,7 +229,25 @@ class WizardWindow(QWidget):
             self.page_progress.status.setText("")
             self._start_copy()
             return
+        if idx == 5:
+            self._finish()
+            return
         self._show_page(idx + 1)
+
+    def _finish(self):
+        """«Готово»: запускает лаунчер (если отмечено) и закрывает мастер."""
+        if not self._launch_after():
+            QMessageBox.warning(
+                self, "Exeyta",
+                "Установка завершена, но запустить лаунчер не удалось.\n"
+                "Откройте ярлык Exeyta на рабочем столе вручную.")
+        self.close()
+
+    def _launch_after(self):
+        """Запуск установленного лаунчера, если стоит соответствующая галочка."""
+        if self.page_done.run_after():
+            return launch_installed(_Path(self._install_dir))
+        return True
 
     def _back(self):
         if self._index > 0 and self._index != 4:
@@ -259,8 +287,8 @@ class WizardWindow(QWidget):
     def _on_close(self):
         if self._worker is not None and self._worker.isRunning():
             self._worker.cancel()
-        if self._index == 5 and self.page_done.run_after():
-            launch_installed(_Path(self._install_dir))
+        if self._index == 5:
+            self._launch_after()
         self.close()
 
     def closeEvent(self, event):
