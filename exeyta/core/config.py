@@ -20,9 +20,9 @@ LAUNCHER_NAME = "ExeytaLauncher"
 TELEGRAM_URL = "https://t.me/exeyta"
 CONFIG_VERSION = 1
 
-# базовый размер окна (viewBox SVG: 28 22 1864 1036)
-BASE_W = 1864
-BASE_H = 1036
+# базовый размер окна (логическая сетка нового интерфейса)
+BASE_W = 1440
+BASE_H = 900
 
 _ROOT_OVERRIDE = None   # см. set_root() — объявлено до root_dir()
 

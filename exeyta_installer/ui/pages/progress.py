@@ -10,7 +10,7 @@ class ProgressPage(PageWidget):
         super().__init__(parent)
         make_heading("Копирование файлов…", self, y=0, px=24)
         self.dest_lbl = QLabel("", self)
-        self.dest_lbl.setStyleSheet("color: #86efac; font-size: 13px; "
+        self.dest_lbl.setStyleSheet("color: #7fbf8f; font-size: 13px; "
                                     "background: transparent;")
         self.dest_lbl.move(0, 40)
 
@@ -22,18 +22,18 @@ class ProgressPage(PageWidget):
         self.bar.setGeometry(0, 76, 696, 16)
 
         self.pct = QLabel("0%", self)
-        self.pct.setStyleSheet("color: #ffe7b0; font-size: 13px; "
+        self.pct.setStyleSheet("color: #e8cf9a; font-size: 13px; "
                                "font-weight: 700; background: transparent;")
         self.pct.setGeometry(0, 100, 696, 20)
 
         self.file_lbl = QLabel("Подготовка…", self)
-        self.file_lbl.setStyleSheet("color: #b9a3b4; font-size: 13px; "
+        self.file_lbl.setStyleSheet("color: #8b8f98; font-size: 13px; "
                                     "background: transparent;")
         self.file_lbl.setGeometry(0, 126, 696, 20)
 
         self.status = QLabel("", self)
         self.status.setWordWrap(True)
-        self.status.setStyleSheet("color: #ff4d6d; font-size: 13px; "
+        self.status.setStyleSheet("color: #d97a7a; font-size: 13px; "
                                   "background: transparent;")
         self.status.setGeometry(0, 156, 696, 60)
 
@@ -42,7 +42,7 @@ class ProgressPage(PageWidget):
             "Minecraft и Java установит сам лаунчер при первом запуске.",
             self)
         self.summary.setWordWrap(True)
-        self.summary.setStyleSheet("color: #8d7084; font-size: 12px; "
+        self.summary.setStyleSheet("color: #62666e; font-size: 12px; "
                                    "background: transparent;")
         self.summary.setGeometry(0, 224, 696, 50)
 
@@ -69,7 +69,7 @@ class ProgressPage(PageWidget):
         self.bar.setValue(100)
         self.pct.setText("100%")
         self.file_lbl.setText("Готово")
-        self.status.setStyleSheet("color: #86efac; font-size: 13px; "
+        self.status.setStyleSheet("color: #7fbf8f; font-size: 13px; "
                                   "background: transparent;")
         self.status.setText("Лаунчер установлен.")
 

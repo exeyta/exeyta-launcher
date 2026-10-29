@@ -16,7 +16,7 @@ class PathPage(PageWidget):
         super().__init__(parent)
         make_heading("Куда установить Exeyta?", self, y=0, px=24)
         tip = QLabel("Рекомендуется оставить путь по умолчанию.", self)
-        tip.setStyleSheet("color: #b9a3b4; font-size: 13px; "
+        tip.setStyleSheet("color: #8b8f98; font-size: 13px; "
                           "background: transparent;")
         tip.move(0, 38)
 
@@ -33,17 +33,17 @@ class PathPage(PageWidget):
             "Создаются каталоги: runtime (jre8/jre17/jre21 — скачает "
             "лаунчер), game (клиент), mods, scripts, logs.", self)
         self.hint.setWordWrap(True)
-        self.hint.setStyleSheet("color: #8d7084; font-size: 12px; "
+        self.hint.setStyleSheet("color: #62666e; font-size: 12px; "
                                 "background: transparent;")
         self.hint.setGeometry(0, 134, 696, 44)
 
         self.err = QLabel("", self)
-        self.err.setStyleSheet("color: #ff4d6d; font-size: 13px; "
+        self.err.setStyleSheet("color: #d97a7a; font-size: 13px; "
                                "background: transparent;")
         self.err.setGeometry(0, 186, 696, 24)
 
         info = QLabel("Занято примерно 120 МБ (без Minecraft/Java).", self)
-        info.setStyleSheet("color: #b9a3b4; font-size: 12px; "
+        info.setStyleSheet("color: #8b8f98; font-size: 12px; "
                            "background: transparent;")
         info.move(0, 220)
 

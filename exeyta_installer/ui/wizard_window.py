@@ -50,7 +50,7 @@ class _CloseBtn(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         t = self._hover.hoverT
-        color = QColor("#8d7084") if t < 0.4 else QColor("#ff4d6d")
+        color = QColor("#62666e") if t < 0.4 else QColor("#d97a7a")
         pen = QPen(color)
         pen.setWidthF(1.6)
         pen.setCapStyle(Qt.RoundCap)
@@ -95,17 +95,17 @@ class WizardWindow(QWidget):
         self.logo.move(32, 26)
 
         t = QLabel("Exeyta", self)
-        t.setStyleSheet("color: #fff8f2; font-size: 22px; font-weight: 800; "
+        t.setStyleSheet("color: #eceef2; font-size: 22px; font-weight: 800; "
                         "background: transparent;")
         t.setGeometry(86, 24, 220, 30)
 
         s = QLabel("УСТАНОВЩИК", self)
-        s.setStyleSheet("color: #c9a8b8; font-size: 10px; "
+        s.setStyleSheet("color: #9a9ea7; font-size: 10px; "
                         "background: transparent;")
         s.setGeometry(87, 52, 220, 16)
 
         self.step_lbl = QLabel("", self)
-        self.step_lbl.setStyleSheet("color: #b9a3b4; font-size: 13px; "
+        self.step_lbl.setStyleSheet("color: #8b8f98; font-size: 13px; "
                                     "background: transparent;")
         self.step_lbl.setGeometry(W - 32 - 220, 34, 220, 22)
         self.step_lbl.setAlignment(Qt.AlignRight)
@@ -146,7 +146,7 @@ class WizardWindow(QWidget):
 
         self.btn_next = FxButton("Далее", kind="sun", w_=160, h_=44,
                                  radius=12, px=14, svg_w=700,
-                                 glow="#ff7a4d", parent=self)
+                                 glow="#c9a45c", parent=self)
         self.btn_next.move(W - 32 - 160, 468)
         self.btn_next.clicked.connect(self._next)
 

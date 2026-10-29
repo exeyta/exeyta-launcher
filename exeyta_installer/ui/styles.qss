@@ -1,6 +1,6 @@
 /* ============================================================
-   ExeytaSetup — стили установщика (та же тема, что у лаунчера;
-   цвета — из exeyta_shared/theme.py / assets/launcher-ui.svg).
+   ExeytaSetup — стили установщика (та же тема, что у лаунчера:
+   графит + приглушённое золото; exeyta_shared/theme.py).
    ============================================================ */
 
 * {
@@ -9,13 +9,13 @@
 
 QWidget {
     background: transparent;
-    color: #fff8f2;
+    color: #eceef2;
 }
 
 QToolTip {
-    background: #24142e;
-    color: #fff8f2;
-    border: 1px solid #ffb703;
+    background: #24252b;
+    color: #eceef2;
+    border: 1px solid #3a3b43;
     padding: 5px 9px;
     border-radius: 7px;
     font-size: 12px;
@@ -23,36 +23,36 @@ QToolTip {
 
 QLabel {
     background: transparent;
-    color: #fff8f2;
+    color: #eceef2;
 }
 
 QLineEdit {
-    background: #1c1024;
-    border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 12px;
+    background: #1c1d22;
+    border: 1px solid #2a2b31;
+    border-radius: 10px;
     padding: 10px 14px;
-    color: #fff8f2;
+    color: #eceef2;
     font-size: 14px;
-    selection-background-color: #ffb703;
-    selection-color: #1a0a10;
+    selection-background-color: #c9a45c;
+    selection-color: #1c1609;
 }
 QLineEdit:focus {
-    border: 1px solid #ffb703;
+    border: 1px solid #c9a45c;
 }
 
 QPlainTextEdit {
-    background: #120910;
-    border: 1px solid rgba(255,255,255,0.09);
-    border-radius: 12px;
-    color: #e7d5df;
+    background: #121317;
+    border: 1px solid #26272d;
+    border-radius: 10px;
+    color: #c7cad1;
     font-size: 13px;
     padding: 8px;
-    selection-background-color: #ffb703;
-    selection-color: #1a0a10;
+    selection-background-color: #c9a45c;
+    selection-color: #1c1609;
 }
 
 QCheckBox {
-    color: #e7d5df;
+    color: #c7cad1;
     font-size: 14px;
     spacing: 10px;
 }
@@ -60,27 +60,26 @@ QCheckBox::indicator {
     width: 20px;
     height: 20px;
     border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.19);
-    background: #1c1024;
+    border: 1px solid #3a3b43;
+    background: #1c1d22;
 }
 QCheckBox::indicator:checked {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #ffe08a, stop:0.42 #ff8a3d, stop:1 #ff4d88);
-    border: 1px solid #ffb703;
+    background: #c9a45c;
+    border: 1px solid #d8b56e;
 }
 QCheckBox:hover {
-    color: #fff8f2;
+    color: #eceef2;
 }
 
 QProgressBar#progressWiz {
-    background: #2a1834;
+    background: #2a2b31;
     border: none;
     border-radius: 8px;
 }
 QProgressBar#progressWiz::chunk {
     border-radius: 8px;
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #ffb703, stop:1 #ff4d6d);
+        stop:0 #a8843c, stop:1 #d3b06a);
 }
 
 QScrollBar:vertical {
@@ -89,12 +88,12 @@ QScrollBar:vertical {
     margin: 2px;
 }
 QScrollBar::handle:vertical {
-    background: #3a2148;
+    background: #34353c;
     border-radius: 5px;
     min-height: 28px;
 }
 QScrollBar::handle:vertical:hover {
-    background: #ffb703;
+    background: #c9a45c;
 }
 QScrollBar::add-line, QScrollBar::sub-line {
     height: 0;

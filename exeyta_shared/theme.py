@@ -2,8 +2,10 @@
 """Общая тема Exeyta (лаунчер + установщик).
 
 Единственный источник цветовых токенов и помощников рисования.
-Соответствует визуальному источнику правды: assets/launcher-ui.svg
-(viewBox 28 22 1864 1036, rx окна 28).
+
+Тема 2026: спокойный тёмно-графитовый интерфейс с приглушённым
+золотисто-жёлтым акцентом (не неоновым). Акцент используется только
+для главного действия, выбранного пункта меню и небольших деталей.
 """
 from PyQt5.QtCore import QPointF, QRectF, QSize, Qt
 from PyQt5.QtGui import (
@@ -22,40 +24,47 @@ from PyQt5.QtSvg import QSvgRenderer
 # Токены
 # ---------------------------------------------------------------------------
 TOKENS = {
-    # bg: #100710 -> #1a0c16 -> #2a1220
-    "bg": ["#100710", "#1a0c16", "#2a1220"],
-    # side: #24122c -> #100810
-    "side": ["#24122c", "#100810"],
-    # card: #3a2148 -> #24142e -> #140c1a
-    "card": ["#3a2148", "#24142e", "#140c1a"],
-    # sun: #ffe08a -> #ff8a3d -> #ff4d88
-    "sun": ["#ffe08a", "#ff8a3d", "#ff4d88"],
-    # sunH: #ffb703 -> #ff4d6d
-    "sunH": ["#ffb703", "#ff4d6d"],
-    "text": "#fff8f2",
-    "muted": ["#b9a3b4", "#c9a8b8", "#8d7084"],
-    "gold": ["#ffb703", "#ffe7b0"],
-    "pink": ["#ffd0e0", "#ff4d88"],
-    "success": "#86efac",
+    # bg: #141519 -> #17181d -> #1a1b20
+    "bg": ["#141519", "#17181d", "#1a1b20"],
+    # side: #121317 -> #0e0f12
+    "side": ["#121317", "#0e0f12"],
+    # card: #202127 -> #1b1c21 -> #18191d
+    "card": ["#202127", "#1b1c21", "#18191d"],
+    # sun: приглушённый золотой градиент
+    "sun": ["#ddc27e", "#c9a45c", "#a8843c"],
+    # sunH: основной акцент (мягкое золото)
+    "sunH": ["#d3b06a", "#b08c44"],
+    "text": "#eceef2",
+    "muted": ["#9a9ea7", "#8b8f98", "#6f737c"],
+    "gold": ["#c9a45c", "#e8cf9a"],
+    "pink": ["#e8cf9a", "#c9a45c"],       # прежний «розовый» акцент
+    "success": "#7fbf8f",
+    "danger": "#d97a7a",
     "telegram": "#2AABEE",
-    "stroke": ["#14ffffff", "#18ffffff", "#10ffffff"],
-    "ink": "#1a0a10",          # тёмный текст на солнечных кнопках
-    "panel_dark": "#120910",   # плашки внутри карточек
-    "panel_deep": "#100810",   # плашки настроек / инструментов
-    "chip": "#2a1834",
-    "well": "#1c1024",
-    "stage": ["#5a2a48", "#0c0610"],
+    "stroke": ["#16ffffff", "#1affffff", "#12ffffff"],
+    "ink": "#1c1609",                      # тёмный текст на золотых кнопках
+    "panel_dark": "#15161a",               # плашки внутри карточек
+    "panel_deep": "#121317",               # плашки настроек / инструментов
+    "chip": "#26272e",
+    "well": "#1c1d22",
+    "stage": ["#3a3020", "#0f1013"],
     "white": "#ffffff",
+    # семантические алиасы для нового интерфейса
+    "accent": "#c9a45c",
+    "accent_hover": "#d8b56e",
+    "accent_soft": "#1fc9a45c",
+    "border": "#2a2b31",
+    "border_soft": "#232429",
 }
 
-RADIUS_WINDOW = 28
-RADIUS_CARD = 22
-RADIUS_NAV = 14
-SIDEBAR_W = 280
-TOP_STRIP = 3
-BASE_W = 1864
-BASE_H = 1036
-SHEEN_H = 56
+RADIUS_WINDOW = 12
+RADIUS_CARD = 14
+RADIUS_NAV = 9
+SIDEBAR_W = 232
+TOP_STRIP = 0
+BASE_W = 1440
+BASE_H = 900
+SHEEN_H = 40
 
 FONT_FAMILY = "Segoe UI"
 FONT_FALLBACK = "Arial"
@@ -63,6 +72,7 @@ FONT_FALLBACK = "Arial"
 TELEGRAM_URL = "https://t.me/exeyta"
 # кнопка «Скачать текстурпак» в сайдбаре
 RESOURCE_PACKS_URL = "https://minecraft-inside.ru/resource-packs/"
+LAUNCHER_VERSION = "0.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +102,7 @@ def _resolve_family():
 
 
 def font(px, weight=500, family=None, italic=False):
-    """QFont с размером в пикселях (точное соответствие SVG)."""
+    """QFont с размером в пикселях (точное соответствие макету)."""
     fam = family or _resolve_family()
     f = QFont(fam)
     f.setPixelSize(max(1, int(round(px))))
@@ -104,7 +114,7 @@ def font(px, weight=500, family=None, italic=False):
 
 def text_label(parent, x, baseline, px, w, text="", color=None, weight=500,
                align=None, family=None, h=None):
-    """QLabel, позиционированный по baseline как текст в SVG.
+    """QLabel, позиционированный по baseline как текст в макете.
 
     Геометрия подбирается через QFontMetrics, поэтому базовая линия
     совпадает с макетом независимо от метрик шрифта.
@@ -194,9 +204,9 @@ def rounded_path(rect, radius):
     return path
 
 
-def paint_card(painter, rect, radius=RADIUS_CARD, border="#18ffffff",
+def paint_card(painter, rect, radius=RADIUS_CARD, border="#16ffffff",
                sheen=True, sheen_h=SHEEN_H):
-    """Карточка макета: градиент card + блик сверху + тонкая рамка."""
+    """Карточка: мягкий градиент + едва заметный блик + тонкая рамка."""
     painter.save()
     path = rounded_path(rect, radius)
     painter.setClipPath(path)
@@ -205,7 +215,7 @@ def paint_card(painter, rect, radius=RADIUS_CARD, border="#18ffffff",
         sh = QRectF(rect.left(), rect.top(), rect.width(), sheen_h)
         grad = QLinearGradient(QPointF(sh.left(), sh.top()),
                                QPointF(sh.left(), sh.bottom()))
-        grad.setColorAt(0.0, QColor(255, 255, 255, 36))
+        grad.setColorAt(0.0, QColor(255, 255, 255, 14))
         grad.setColorAt(1.0, QColor(255, 255, 255, 0))
         painter.fillRect(sh, grad)
     painter.restore()
@@ -242,7 +252,7 @@ def icon_pixmap(svg, size, color="#ffffff", stroke=1.6, fill="none"):
     return pm
 
 
-# Иконки из макета (24x24 сетка)
+# Иконки (24x24 сетка)
 ICON_HOME = "M4 11 L12 4 L20 11 V20 H14 V14 H10 V20 H4 Z"
 ICON_PLAY = "M8 5 L20 12 L8 19 Z"
 ICON_SKIN = "M12 4 a4 4 0 1 1 0 8 a4 4 0 0 1 0-8 M5 20 c1-4 4-6 7-6 s6 2 7 6"
@@ -262,7 +272,19 @@ ICON_RECT = "M7 16 H21 V24 H7 Z"
 ICON_ERASE = "M16 8 A8 8 0 1 0 18 20"
 ICON_PLUS = "M14 8 V20 M8 14 H20"
 ICON_MINUS = "M8 14 H20"
-ICON_TELEGRAM = "M0 0 L38 8 L0 16 L10 8 Z"
+ICON_TELEGRAM = "M3 11 L21 3 L14 21 L10 13 Z M10 13 L21 3"
 # коробка/пакет ресурсов (для кнопки «Скачать текстурпак»)
 ICON_PACK = ("M12 2 L21 6.5 V17.5 L12 22 L3 17.5 V6.5 Z "
              "M3 6.5 L12 11 M12 11 L21 6.5 M12 11 V22")
+# новые пункты навигации
+ICON_VERSIONS = ("M12 3 L21 7.5 L12 12 L3 7.5 Z "
+                 "M3 12 L12 16.5 L21 12 M3 16.5 L12 21 L21 16.5")
+ICON_SLIDERS = ("M4 7 h10 M18 7 h2 M16 5 v4 "
+                "M4 17 h2 M10 17 h10 M8 15 v4")
+ICON_TERMINAL = "M5 7 l5 5 -5 5 M13 17 h6"
+ICON_FOLDER = "M3 7 h7 l2 2 h9 v10 H3 Z"
+ICON_STOP = "M7 7 h10 v10 H7 Z"
+ICON_REFRESH = "M20 12 a8 8 0 1 0-2.4 5.7 M20 6 v5 h-5"
+ICON_CHEVRON = "M8 10 l4 4 4-4"
+ICON_USER = "M12 4 a4 4 0 1 1 0 8 a4 4 0 0 1 0-8 M5 20 c1-4 4-6 7-6 s6 2 7 6"
+ICON_TRASH = "M5 7 h14 M9 7 V5 h6 v2 M7 7 l1 13 h8 l1-13"

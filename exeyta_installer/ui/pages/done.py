@@ -15,12 +15,12 @@ class DonePage(PageWidget):
             "Exeyta установлен. При первом запуске лаунчер предложит "
             "скачать Minecraft и подходящую Java одним мастером.", self)
         self.body.setWordWrap(True)
-        self.body.setStyleSheet("color: #b9a3b4; font-size: 14px; "
+        self.body.setStyleSheet("color: #8b8f98; font-size: 14px; "
                                 "background: transparent;")
         self.body.setGeometry(0, 124, 696, 60)
 
         self.dest_lbl = QLabel("", self)
-        self.dest_lbl.setStyleSheet("color: #86efac; font-size: 13px; "
+        self.dest_lbl.setStyleSheet("color: #7fbf8f; font-size: 13px; "
                                     "background: transparent;")
         self.dest_lbl.setGeometry(0, 190, 696, 20)
 

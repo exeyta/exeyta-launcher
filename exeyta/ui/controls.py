@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Переиспользуемые контролы лаунчера (рисуются вручную под макет SVG).
+"""Переиспользуемые контролы лаунчера (рисуются вручную).
 
-Все размеры/координаты задаются в логических пикселях макета (viewBox
-28 22 1864 1036) и умножаются на масштаб окна k.
+Все размеры/координаты задаются в логических пикселях и умножаются
+на масштаб окна k.
 """
 from PyQt5.QtCore import (QRectF, Qt, QPropertyAnimation, pyqtSignal,
                           pyqtProperty)
@@ -59,8 +59,8 @@ def add_label(parent, k, x, baseline, px, svg_w, width, text="", color=None,
         align=align, family=family)
 
 
-def apply_glow(widget, color="#ff8a3d", blur=24, alpha=150):
-    """Мягкое свечение (аналог feGaussianBlur из макета)."""
+def apply_glow(widget, color="#c9a45c", blur=24, alpha=90):
+    """Мягкое свечение вокруг виджета."""
     eff = QGraphicsDropShadowEffect(widget)
     eff.setBlurRadius(blur)
     c = QColor(color)
@@ -80,9 +80,9 @@ def rounded_path(r, rad):
 # Панели
 # ---------------------------------------------------------------------------
 class PanelBox(QWidget):
-    """Плоская тёмная плашка (#100810/#1c1024) + рамка + опциональная полоса."""
+    """Плоская тёмная плашка + тонкая рамка + опциональная полоса."""
 
-    def __init__(self, w_, h_, radius=16, fill="#100810", border="#10ffffff",
+    def __init__(self, w_, h_, radius=12, fill="#15161a", border="#16ffffff",
                  strip=False, parent=None):
         super().__init__(parent)
         self._fill = fill
@@ -101,8 +101,7 @@ class PanelBox(QWidget):
         if self._strip:
             p.save()
             p.setClipPath(path)
-            grad = QLinearGradient(r.left(), r.top(), r.left() + 4, r.top())
-            strip = QRectF(r.left(), r.top(), 4, r.height())
+            strip = QRectF(r.left(), r.top(), 3, r.height())
             g = QLinearGradient(strip.topLeft(), strip.bottomLeft())
             g.setColorAt(0.0, QColor(theme.TOKENS["sunH"][0]))
             g.setColorAt(1.0, QColor(theme.TOKENS["sunH"][1]))
@@ -118,9 +117,9 @@ class PanelBox(QWidget):
 
 
 class CardPanel(QWidget):
-    """Карточка макета: градиент card + блик сверху + рамка (radius 22)."""
+    """Карточка: градиент card + лёгкий блик сверху + рамка."""
 
-    def __init__(self, w_, h_, radius=22, border="#18ffffff", sheen=True,
+    def __init__(self, w_, h_, radius=14, border="#16ffffff", sheen=True,
                  parent=None):
         super().__init__(parent)
         self._radius = radius
@@ -136,25 +135,48 @@ class CardPanel(QWidget):
         p.end()
 
 
+class ClickZone(QWidget):
+    """Прозрачная зона клика внутри карточек."""
+
+    clicked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet("background: transparent;")
+
+    def mousePressEvent(self, event):
+        finish_fade(self)
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+        event.accept()
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+        event.accept()
+
+
 # ---------------------------------------------------------------------------
 # Кнопка с плавным hover (QPropertyAnimation, OutCubic)
 # ---------------------------------------------------------------------------
 class FxButton(QWidget):
-    """Универсальная кнопка: sun-градиент / ghost / chip / telegram / plain.
+    """Универсальная кнопка.
 
     kind:
-      sun      — диагональный градиент #ffe08a->#ff8a3d->#ff4d88, текст #1a0a10
-      ghost    — #1c1024 + рамка rgba(255,255,255,0.09), текст #fff8f2
-      chip     — #2a1834 + золотая рамка, текст #ffe7b0
+      sun      — золотой градиент, тёмный текст (главное действие)
+      ghost    — тёмная плашка + рамка, светлый текст
+      chip     — плашка + золотая рамка, золотистый текст
+      danger   — тёмно-красная плашка + красная рамка
       telegram — #2AABEE, белый текст
       plain    — прозрачный фон
     """
 
     clicked = pyqtSignal()
 
-    def __init__(self, text="", kind="ghost", w_=100, h_=40, radius=14,
-                 px=14, svg_w=600, letter=0.0, icon=None, glow=None,
-                 layout="center", pad=0, gap=12, parent=None, tooltip=None):
+    def __init__(self, text="", kind="ghost", w_=100, h_=40, radius=10,
+                 px=13, svg_w=600, letter=0.0, icon=None, glow=None,
+                 layout="center", pad=0, gap=10, parent=None, tooltip=None):
         super().__init__(parent)
         self._text = text
         self._kind = kind
@@ -162,7 +184,7 @@ class FxButton(QWidget):
         self._letter = float(letter)
         self._icon = icon              # QPixmap | None
         self._layout = layout          # 'center' | 'left'
-        self._pad = pad                # отступ слева (layout='left')
+        self._pad = pad
         self._gap = gap
         self._disabled = False
         self.setFixedSize(int(w_), int(h_))
@@ -170,15 +192,14 @@ class FxButton(QWidget):
         if self._letter:
             self._font.setLetterSpacing(QFont.AbsoluteSpacing, self._letter)
         self.setCursor(Qt.PointingHandCursor)
-        self._hover = HoverFader(self, ms=220)
+        self._hover = HoverFader(self, ms=180)
         self._press = 0.0
         self._press_anim = None
         if tooltip:
             self.setToolTip(tooltip)
         if glow:
-            apply_glow(self, glow, blur=22, alpha=140)
+            apply_glow(self, glow, blur=22, alpha=90)
 
-    # pressT property (для QPropertyAnimation)
     @pyqtProperty(float)
     def pressT(self):
         return self._press
@@ -221,11 +242,11 @@ class FxButton(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
-        finish_fade(self)   # кнопка не должна «исчезать» во время fade секции
+        finish_fade(self)
         if event.button() == Qt.LeftButton:
             self._animate_press(1.0, 90)
         super().mousePressEvent(event)
-        event.accept()   # иначе событие уйдёт родителю и запустит перетаскивание окна
+        event.accept()
 
     def mouseReleaseEvent(self, event):
         inside = self.rect().contains(event.pos())
@@ -239,19 +260,19 @@ class FxButton(QWidget):
     def _colors(self, t):
         kind = self._kind
         if kind == "sun":
-            return None, None  # градиент рисуется отдельно
+            return None, None
         if kind == "ghost":
-            bg = lerp_color("#1c1024", "#2a1a38", t)
-            bd = lerp_color("#18ffffff", "#33ffffff", t)
+            bg = lerp_color("#1c1d22", "#25262c", t)
+            bd = lerp_color("#2a2b31", "#3a3b43", t)
             return bg, bd
         if kind == "chip":
-            bg = lerp_color("#2a1834", "#3a2246", t)
-            return bg, QColor("#ffb703")
+            bg = lerp_color("#26272e", "#2f3037", t)
+            return bg, QColor("#c9a45c")
         if kind == "telegram":
             return lerp_color("#2AABEE", "#4dc0f5", t), None
         if kind == "danger":
-            bg = lerp_color("#2a1834", "#4a1a2a", t)
-            return bg, QColor("#ff4d6d")
+            bg = lerp_color("#26272e", "#3a2225", t)
+            return bg, QColor("#d97a7a")
         return None, None
 
     def paintEvent(self, event=None):
@@ -259,7 +280,7 @@ class FxButton(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         t = self._hover.hoverT
         pr = self._press
-        inset = pr * 2.0
+        inset = pr * 1.5
         r = QRectF(self.rect()).adjusted(inset, inset, -inset, -inset)
         rad = max(4.0, self._radius - inset * 0.5)
 
@@ -276,22 +297,21 @@ class FxButton(QWidget):
             p.fillPath(rounded_path(r, rad), grad)
             if t > 0:
                 p.setPen(Qt.NoPen)
-                p.setBrush(QColor(255, 255, 255, round(36 * t)))
+                p.setBrush(QColor(255, 255, 255, round(26 * t)))
                 p.drawRoundedRect(r, rad, rad)
         elif bg is not None:
             p.fillPath(rounded_path(r, rad), bg)
 
         if bd is not None:
             pen = QPen(bd)
-            pen.setWidthF(1.25 if self._kind in ("chip", "danger") else 1.0)
+            pen.setWidthF(1.0)
             p.setPen(pen)
             p.setBrush(Qt.NoBrush)
             p.drawRoundedRect(r, rad, rad)
 
-        # контент: иконка + текст
-        text_color = {"sun": "#1a0a10", "ghost": "#fff8f2",
-                      "chip": "#ffe7b0", "telegram": "#ffffff",
-                      "danger": "#ffd0e0"}.get(self._kind, "#fff8f2")
+        text_color = {"sun": "#1c1609", "ghost": "#eceef2",
+                      "chip": "#e8cf9a", "telegram": "#ffffff",
+                      "danger": "#e8b0b0"}.get(self._kind, "#eceef2")
         p.setFont(self._font)
         p.setPen(QColor(text_color))
         fm = QFontMetricsF(self._font)
@@ -318,7 +338,6 @@ class FxButton(QWidget):
 
         if self._text:
             p.setPen(QColor(text_color))
-            # центрируем по базовой линии (как в макете)
             y = r.center().y() - (fm.ascent() + fm.descent()) / 2.0
             p.drawText(QRectF(x, y, tw + 4, fm.height()),
                        Qt.AlignLeft | Qt.AlignTop, self._text)
@@ -326,7 +345,10 @@ class FxButton(QWidget):
 
 
 class NavButton(QWidget):
-    """Пункт навигации сайдбара (232x48, r14, active: rgba(255,183,3,0.09) + gold)."""
+    """Пункт навигации сайдбара: 200x44, r9.
+
+    Активный пункт: мягкая золотая подложка, золотая иконка и текст.
+    """
 
     clicked = pyqtSignal()
 
@@ -336,9 +358,9 @@ class NavButton(QWidget):
         self._icon_svg = icon_svg
         self.k = float(k)
         self._checked = False
-        self.setFixedSize(round(232 * k), round(48 * k))
+        self.setFixedSize(round(200 * k), round(44 * k))
         self.setCursor(Qt.PointingHandCursor)
-        self._hover = HoverFader(self, ms=220)
+        self._hover = HoverFader(self, ms=180)
         self._icon_cache = None
         self._icon_key = None
 
@@ -353,13 +375,13 @@ class NavButton(QWidget):
 
     def _icon(self):
         k = self.k
-        color = "#ffb703" if self._checked else "#a88898"
+        color = "#d8b56e" if self._checked else "#8b8f98"
         if not self._checked and self._hover.hoverT > 0.02:
-            color = lerp_color("#a88898", "#e7d5df", self._hover.hoverT).name()
+            color = lerp_color("#8b8f98", "#dfe2e8", self._hover.hoverT).name()
         key = (color, round(k, 2))
         if self._icon_key != key:
             self._icon_cache = theme.icon_pixmap(
-                self._icon_svg, round(24 * k), color, stroke=1.6)
+                self._icon_svg, round(18 * k), color, stroke=1.7)
             self._icon_key = key
         return self._icon_cache
 
@@ -392,43 +414,36 @@ class NavButton(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         k = self.k
-        r = QRectF(self.rect()).adjusted(0.6, 0.6, -0.6, -0.6)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         t = self._hover.hoverT
         pressed = getattr(self, "_pressed", False)
 
         if self._checked:
-            fill = QColor("#18ffb703")
-            p.fillPath(rounded_path(r, 14 * k), fill)
-            # полоска sunH 3x24 у левого края (x=52 в макете = левый край)
-            strip = QRectF(r.left(), r.top() + 12 * k, 3 * k, 24 * k)
-            g = QLinearGradient(strip.left(), 0, strip.right(), 0)
-            g.setColorAt(0.0, QColor("#ffb703"))
-            g.setColorAt(1.0, QColor("#ff4d6d"))
-            p.setPen(Qt.NoPen)
-            p.setBrush(g)
-            p.drawRoundedRect(strip, 2 * k, 2 * k)
-            pen = QPen(QColor("#ffb703"))
-            pen.setWidthF(max(1.0, 1.25 * k))
+            p.fillPath(rounded_path(r, 9 * k), QColor(201, 164, 92, 28))
+            pen = QPen(QColor(201, 164, 92, 110))
+            pen.setWidthF(1.0)
             p.setPen(pen)
             p.setBrush(Qt.NoBrush)
-            p.drawRoundedRect(r, 14 * k, 14 * k)
+            p.drawRoundedRect(r, 9 * k, 9 * k)
         else:
-            alpha = round((6 if pressed else 0) + 6 * t)
+            alpha = round((5 if pressed else 0) + 7 * t)
             if alpha > 0:
-                p.fillPath(rounded_path(r, 14 * k), QColor(255, 255, 255, alpha))
+                p.fillPath(rounded_path(r, 9 * k), QColor(255, 255, 255, alpha))
 
         icon = self._icon()
         if icon is not None:
-            p.drawPixmap(round(22 * k), round(12 * k), icon)
+            p.drawPixmap(round(13 * k), round((44 * k - icon.height()) / 2.0),
+                         icon)
 
-        f = theme.font(15 * k, 63 if self._checked else 50)
-        color = "#ffe7b0" if self._checked else "#e7d5df"
-        draw_base(p, 60 * k, 30 * k, self._text, f, color, wide=round(170 * k))
+        f = theme.font(14 * k, 63 if self._checked else 50)
+        color = "#e8cf9a" if self._checked else "#b6bac2"
+        draw_base(p, 42 * k, 27 * k, self._text, f, color,
+                  wide=round(150 * k))
         p.end()
 
 
 class GradientSlider(QWidget):
-    """Слайдер-полоса: трек #2a1834 + заливка sunH (r3, h6), без ручки."""
+    """Слайдер-полоса: тёмный трек + золотая заливка (r3, h5)."""
 
     valueChanged = pyqtSignal(int)
 
@@ -439,17 +454,16 @@ class GradientSlider(QWidget):
         self.max_v = int(max_v)
         self.step = max(1, int(step))
         self._value = int(value)
-        self.setFixedSize(round(w_ * k), round(18 * k))  # 18 — зона хвата
+        self.setFixedSize(round(w_ * k), round(18 * k))
         self.setCursor(Qt.PointingHandCursor)
         self.setMouseTracking(True)
-        self._hover = HoverFader(self, ms=180)
+        self._hover = HoverFader(self, ms=160)
 
     def value(self):
         return self._value
 
     def set_value(self, v, emit=True):
         v = int(v)
-        # привязка к шагу
         v = self.min_v + round((v - self.min_v) / self.step) * self.step
         v = max(self.min_v, min(self.max_v, v))
         if v != self._value:
@@ -463,7 +477,6 @@ class GradientSlider(QWidget):
         return (self._value - self.min_v) / span
 
     def _set_from_pos(self, x):
-        k = self.k
         left, right = 0.0, float(self.width())
         frac = 0.0 if right <= left else (x - left) / (right - left)
         frac = max(0.0, min(1.0, frac))
@@ -498,30 +511,37 @@ class GradientSlider(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         k = self.k
-        th = max(3.0, 6 * k)
+        th = max(3.0, 5 * k)
         r = QRectF(0, (self.height() - th) / 2.0, self.width(), th)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#2a1834"))
+        p.setBrush(QColor("#2a2b31"))
         p.drawRoundedRect(r, th / 2, th / 2)
         fw = r.width() * self._frac()
         if fw > 0.5:
             fr = QRectF(r.left(), r.top(), fw, r.height())
             g = QLinearGradient(fr.left(), 0, fr.right(), 0)
-            g.setColorAt(0.0, QColor("#ffb703"))
-            g.setColorAt(1.0, QColor("#ff4d6d"))
+            g.setColorAt(0.0, QColor("#a8843c"))
+            g.setColorAt(1.0, QColor("#d3b06a"))
             p.setBrush(g)
             p.drawRoundedRect(fr, th / 2, th / 2)
             t = self._hover.hoverT
             if t > 0:
-                p.setBrush(QColor(255, 255, 255, round(40 * t)))
+                p.setBrush(QColor(255, 255, 255, round(30 * t)))
                 p.drawRoundedRect(fr, th / 2, th / 2)
+        # ручка
+        cx = r.left() + fw
+        p.setBrush(QColor("#e8cf9a"))
+        p.setPen(QPen(QColor("#141519"), 2))
+        p.drawEllipse(QRectF(cx - 5 * k, r.center().y() - 5 * k,
+                             10 * k, 10 * k))
         p.end()
 
 
 class ToggleSwitch(QWidget):
-    """Переключатель 40x22 (r11): sunH-градиент вкл / #2a1834 выкл."""
+    """Переключатель 40x22 (r11): золотой вкл / тёмный выкл."""
 
     toggled = pyqtSignal(bool)
+
     def __init__(self, on=False, k=1.0, parent=None):
         super().__init__(parent)
         self.k = float(k)
@@ -550,7 +570,7 @@ class ToggleSwitch(QWidget):
         self._on = on
         safe_stop(self._anim)
         anim = QPropertyAnimation(self, b"t")
-        anim.setDuration(220)
+        anim.setDuration(180)
         anim.setStartValue(self._t)
         anim.setEndValue(1.0 if on else 0.0)
         ease_out_cubic(anim)
@@ -577,37 +597,28 @@ class ToggleSwitch(QWidget):
         r = QRectF(self.rect())
         rad = r.height() / 2.0
         t = self._t
-        # трек
-        track = lerp_color("#2a1834", "#ffb703", t)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#2a2b31"))
+        p.drawRoundedRect(r, rad, rad)
         if t > 0.02:
-            # плавный переход к градиенту: база + градиент поверх
             g = QLinearGradient(r.left(), r.top(), r.right(), r.top())
-            g.setColorAt(0.0, QColor("#ffb703"))
-            g.setColorAt(1.0, QColor("#ff4d6d"))
-            p.setPen(Qt.NoPen)
-            p.setBrush(QColor("#2a1834"))
-            p.drawRoundedRect(r, rad, rad)
+            g.setColorAt(0.0, QColor("#a8843c"))
+            g.setColorAt(1.0, QColor("#d3b06a"))
             p.setBrush(g)
             p.setOpacity(t)
             p.drawRoundedRect(r, rad, rad)
             p.setOpacity(1.0)
-        else:
-            p.setPen(Qt.NoPen)
-            p.setBrush(track)
-            p.drawRoundedRect(r, rad, rad)
-        # ручка
         knob_r = 8 * k
         pad = (r.height() - knob_r * 2) / 2.0
         cx = r.left() + pad + t * (r.width() - knob_r * 2 - pad * 2) + knob_r
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#ffffff"))
+        p.setBrush(QColor("#f2efe6" if t > 0.5 else "#c7cad1"))
         p.drawEllipse(QRectF(cx - knob_r, r.center().y() - knob_r,
                              knob_r * 2, knob_r * 2))
         p.end()
 
 
 class ToolButton(QWidget):
-    """Инструмент редактора скина: 52x46, r12, иконка 28px из макета."""
+    """Инструмент редактора скина: 52x46, r10."""
 
     clicked = pyqtSignal()
 
@@ -619,7 +630,7 @@ class ToolButton(QWidget):
         self._checked = False
         self.setFixedSize(round(52 * k), round(46 * k))
         self.setCursor(Qt.PointingHandCursor)
-        self._hover = HoverFader(self, ms=200)
+        self._hover = HoverFader(self, ms=160)
         self._pm = None
         self._key = None
 
@@ -633,9 +644,9 @@ class ToolButton(QWidget):
         return self._checked
 
     def _icon(self):
-        color = "#ffe7b0" if self._checked else "#e7d5df"
+        color = "#e8cf9a" if self._checked else "#c7cad1"
         if not self._checked and self._hover.hoverT > 0.02:
-            color = lerp_color("#e7d5df", "#fff8f2", self._hover.hoverT).name()
+            color = lerp_color("#c7cad1", "#eceef2", self._hover.hoverT).name()
         key = (color, self._viewBox, self._icon_svg)
         if self._key != key:
             size = round(28 * self.k)
@@ -673,20 +684,20 @@ class ToolButton(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         k = self.k
-        r = QRectF(self.rect()).adjusted(0.6, 0.6, -0.6, -0.6)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         t = self._hover.hoverT
         if self._checked:
-            p.fillPath(rounded_path(r, 12 * k), QColor("#22ffb703"))
-            pen = QPen(QColor("#ffb703"))
-            pen.setWidthF(max(1.0, 1.25 * k))
+            p.fillPath(rounded_path(r, 10 * k), QColor(201, 164, 92, 30))
+            pen = QPen(QColor(201, 164, 92, 120))
+            pen.setWidthF(1.0)
             p.setPen(pen)
             p.setBrush(Qt.NoBrush)
-            p.drawRoundedRect(r, 12 * k, 12 * k)
+            p.drawRoundedRect(r, 10 * k, 10 * k)
         else:
-            bg = lerp_color("#1c1024", "#251631", t)
+            bg = lerp_color("#1c1d22", "#25262c", t)
             p.setPen(Qt.NoPen)
             p.setBrush(bg)
-            p.drawRoundedRect(r, 12 * k, 12 * k)
+            p.drawRoundedRect(r, 10 * k, 10 * k)
         icon = self._icon()
         if icon is not None:
             x = (self.width() - icon.width()) / 2.0
@@ -696,7 +707,7 @@ class ToolButton(QWidget):
 
 
 class PaletteSwatch(QWidget):
-    """Кружок палитры r10 (выбран — обводка #fff8f2 r13)."""
+    """Кружок палитры r10 (выбран — светлая обводка)."""
 
     clicked = pyqtSignal(str)
 
@@ -735,10 +746,52 @@ class PaletteSwatch(QWidget):
         k = self.k
         cx, cy = self.width() / 2.0, self.height() / 2.0
         if self._selected:
-            p.setPen(QPen(QColor("#fff8f2"), max(1.5, 2 * k)))
+            p.setPen(QPen(QColor("#eceef2"), max(1.5, 2 * k)))
             p.setBrush(Qt.NoBrush)
             p.drawEllipse(QRectF(cx - 13 * k, cy - 13 * k, 26 * k, 26 * k))
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(self._color))
         p.drawEllipse(QRectF(cx - 10 * k, cy - 10 * k, 20 * k, 20 * k))
+        p.end()
+
+
+class Badge(QWidget):
+    """Небольшой статусный бейдж (например, «готова»)."""
+
+    def __init__(self, text="", k=1.0, color="#c9a45c", parent=None):
+        super().__init__(parent)
+        self.k = float(k)
+        self._text = text
+        self._color = QColor(color)
+        fm = QFontMetricsF(theme.font(11 * k, 63))
+        self.setFixedSize(round(fm.horizontalAdvance(text) + 22 * k),
+                          round(22 * k))
+
+    def set_text(self, text):
+        self._text = text
+        fm = QFontMetricsF(theme.font(11 * self.k, 63))
+        self.setFixedWidth(round(fm.horizontalAdvance(text) + 22 * self.k))
+        self.update()
+
+    def set_color(self, color):
+        self._color = QColor(color)
+        self.update()
+
+    def paintEvent(self, event=None):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        k = self.k
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        c = QColor(self._color)
+        fill = QColor(c)
+        fill.setAlpha(38)
+        p.setBrush(fill)
+        border = QColor(c)
+        border.setAlpha(150)
+        p.setPen(QPen(border, 1.0))
+        p.drawRoundedRect(r, 6 * k, 6 * k)
+        f = theme.font(11 * k, 63)
+        p.setFont(f)
+        p.setPen(c)
+        p.drawText(r, Qt.AlignCenter, self._text)
         p.end()

@@ -22,6 +22,8 @@ build/*
 !build/*.spec
 !build/*.py
 !build/*.bat
+# отдельная сборка ОС, не относится к лаунчеру
+An0nyOS-build/
 
 # --- сгенерированные bat-файлы запуска игры ---
 scripts/*

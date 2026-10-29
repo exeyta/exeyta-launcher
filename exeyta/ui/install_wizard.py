@@ -146,7 +146,7 @@ class InstallWizard(QDialog):
         if self._worker is not None:
             self._worker.cancel()
             self.btn_cancel.setEnabled(False)
-            self.stage_client.set_message("Отмена…", "#ffb703")
+            self.stage_client.set_message("Отмена…", "#c9a45c")
 
     def _on_stage(self, stage):
         if stage == "java":
@@ -173,7 +173,7 @@ class InstallWizard(QDialog):
         name = "Клиент" if stage == "client" else "Java"
         self.error.setText("%s: %s" % (name, message))
         (self.stage_client if stage == "client" else self.stage_java) \
-            .set_message("Ошибка — нажмите «Повторить»", "#ff4d6d")
+            .set_message("Ошибка — нажмите «Повторить»", "#d97a7a")
 
     def _on_cancelled(self):
         self.close()
@@ -205,8 +205,8 @@ class InstallWizard(QDialog):
         strip = QRectF(r.left(), r.top(), r.width(), 3)
         g = QLinearGradient(strip.left(), strip.top(),
                             strip.right(), strip.top())
-        g.setColorAt(0.0, QColor("#ffb703"))
-        g.setColorAt(1.0, QColor("#ff4d6d"))
+        g.setColorAt(0.0, QColor("#c9a45c"))
+        g.setColorAt(1.0, QColor("#d97a7a"))
         p.fillRect(strip, g)
         p.restore()
         pen = QPen(QColor("#18ffffff"))

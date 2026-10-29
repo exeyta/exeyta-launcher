@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Панель «Запуск» (430x648, r22) — 1:1 с assets/launcher-ui.svg.
+"""Раздел «Версии»: текущая версия, каталог версий и установка.
 
-Заголовок + статус сессии, плашка версии (Minecraft / версия / чип «Моды»),
-блок Память+слайдер / Java / Папка / Моды / «Готово к запуску»,
-кнопка ИГРАТЬ 382x70 (sun-градиент, капс, letter-spacing 3, без блика).
+Список версий приходит из VersionsWorker (QThread) в MainWindow и
+передаётся в set_version_ids(). Установка запускается мастером
+Minecraft + Java (сигнал download_version).
 """
 import re
+from pathlib import Path
 
-from PyQt5.QtCore import QRectF, Qt, pyqtSignal
-from PyQt5.QtGui import QBrush, QColor, QPainter, QPen
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
+from PyQt5.QtGui import QBrush, QColor
 from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QLineEdit,
                              QListWidget, QListWidgetItem, QVBoxLayout,
                              QWidget)
@@ -16,15 +17,15 @@ from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QLineEdit,
 from exeyta_shared import theme
 from exeyta_shared.animations import finish_fade
 
-from .controls import (CardPanel, FxButton, GradientSlider, PanelBox,
-                       add_label, apply_glow, draw_base, w)
+from .controls import (Badge, CardPanel, ClickZone, FxButton, add_label,
+                       w)
 
 # keep-alive для фоновых VersionsWorker (нельзя удалять работающий QThread)
 _VERSION_WORKERS = []
 
 
 def elide_path(path, px, width, k):
-    """Серединное сокращение длинного пути под ширину (в пикселях макета)."""
+    """Серединное сокращение длинного пути под ширину (в пикселях)."""
     path = str(path)
     max_len = int(width / (px * 0.55)) if px else 40
     if len(path) <= max_len:
@@ -34,74 +35,15 @@ def elide_path(path, px, width, k):
     return path[:head] + "…" + path[-tail:]
 
 
-class _InfoBlock(QWidget):
-    """Центральный блок 382x360 (r18) с разделителями (белый 10%)."""
-
-    def __init__(self, w_, h_, k=1.0, parent=None):
-        super().__init__(parent)
-        self.k = float(k)
-        self.setFixedSize(round(w_ * k), round(h_ * k))
-
-    def paintEvent(self, event=None):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        k = self.k
-        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#120910"))
-        p.drawRoundedRect(r, 18 * k, 18 * k)
-        pen = QPen(QColor("#10ffffff"))
-        pen.setWidthF(1.0)
-        p.setPen(pen)
-        p.drawRoundedRect(r, 18 * k, 18 * k)
-        # разделители y: 64 / 132 / 200 (в координатах блока)
-        p.drawLine(QPointF_(20 * k, 64 * k), QPointF_(362 * k, 64 * k))
-        p.drawLine(QPointF_(20 * k, 132 * k), QPointF_(362 * k, 132 * k))
-        p.drawLine(QPointF_(20 * k, 200 * k), QPointF_(362 * k, 200 * k))
-        p.end()
-
-
-def QPointF_(x, y):
-    from PyQt5.QtCore import QPointF
-    return QPointF(x, y)
-
-
-class _ClickZone(QWidget):
-    """Прозрачная зона клика (виртуальные методы PyQt не патчатся на实例).
-
-    Реальный подкласс: клик гарантированно доходит до Python-кода.
-    """
-
-    clicked = pyqtSignal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet("background: transparent;")
-
-    def mousePressEvent(self, event):
-        finish_fade(self)   # зона клика внутри fade-секции
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
-        event.accept()
-
-    def mouseReleaseEvent(self, event):
-        super().mouseReleaseEvent(event)
-        event.accept()
+class _ClickZone(ClickZone):
+    """Совместимость со старым именем."""
 
 
 class VersionDialog(QDialog):
-    """Выбор версии Minecraft: онлайн-список релизов Mojang + установка.
+    """Выбор версии Minecraft: онлайн-список релизов Mojang + установка."""
 
-    * список грузится в QThread (VersionsWorker), есть кэш и «Обновить»;
-    * фильтр по номеру;
-    * отметка «установлено» (клиент + нужная Java уже скачаны);
-    * кнопки: «Скачать» (единый мастер MC+Java) и «Выбрать».
-    """
-
-    chosen = pyqtSignal(str)              # выбрать как текущую
-    download_requested = pyqtSignal(str)  # скачать/допроверить
+    chosen = pyqtSignal(str)
+    download_requested = pyqtSignal(str)
 
     def __init__(self, current, ids, types=None, parent=None):
         super().__init__(parent)
@@ -132,7 +74,7 @@ class VersionDialog(QDialog):
         self.filter.textChanged.connect(self._populate)
         row.addWidget(self.filter, 1)
         self.btn_refresh = FxButton("Обновить", kind="chip", w_=112, h_=40,
-                                    radius=12, px=13, svg_w=600)
+                                    radius=9, px=13, svg_w=600)
         self.btn_refresh.clicked.connect(self._start_load)
         row.addWidget(self.btn_refresh)
         root.addLayout(row)
@@ -149,13 +91,13 @@ class VersionDialog(QDialog):
         btns = QHBoxLayout()
         btns.setSpacing(10)
         btn_close = FxButton("Закрыть", kind="ghost", w_=116, h_=42,
-                             radius=12, px=13, svg_w=600)
+                             radius=9, px=13, svg_w=600)
         btn_close.clicked.connect(self.reject)
         self.btn_download = FxButton("Скачать", kind="chip", w_=160, h_=42,
-                                     radius=12, px=13, svg_w=700)
+                                     radius=9, px=13, svg_w=700)
         self.btn_download.clicked.connect(self._download)
         self.btn_pick = FxButton("Выбрать", kind="sun", w_=160, h_=42,
-                                 radius=12, px=13, svg_w=700)
+                                 radius=9, px=13, svg_w=700)
         self.btn_pick.clicked.connect(self._pick)
         btns.addWidget(btn_close)
         btns.addStretch(1)
@@ -170,13 +112,13 @@ class VersionDialog(QDialog):
         else:
             self.status.setText("%d версий в списке" % len(self.ids))
 
-    # --- данные ------------------------------------------------------------
+    # --- данные ----------------------------------------------------------
     def _start_load(self):
         if self._worker is not None and self._worker.isRunning():
             return
         from ..workers.download_worker import VersionsWorker
         self.btn_refresh.set_disabled(True)
-        self.status.setStyleSheet("color: #b9a3b4;")
+        self.status.setStyleSheet("color: #8b8f98;")
         self.status.setText("Загрузка списка версий…")
         worker = VersionsWorker()
         worker.loaded.connect(self._on_ids)
@@ -190,13 +132,12 @@ class VersionDialog(QDialog):
                 _VERSION_WORKERS.remove(w)
 
         worker.finished.connect(_release)
-        _VERSION_WORKERS.append(worker)   # живёт до завершения потока
+        _VERSION_WORKERS.append(worker)
         self._worker = worker
         worker.start()
 
     def _on_ids(self, ids):
         if ids:
-            # список приходит как [{"id","type"}] или как [id, ...]
             self.ids, self.types = [], {}
             for it in ids:
                 if isinstance(it, dict):
@@ -208,14 +149,14 @@ class VersionDialog(QDialog):
                 self.ids.append(vid)
                 if typ:
                     self.types[vid] = typ
-            self.status.setStyleSheet("color: #86efac;")
+            self.status.setStyleSheet("color: #7fbf8f;")
             self.status.setText("%d версий загружено" % len(self.ids))
             self._populate()
         else:
             self._on_fail("Пустой список версий")
 
     def _on_fail(self, message):
-        self.status.setStyleSheet("color: #ff4d6d;")
+        self.status.setStyleSheet("color: #d97a7a;")
         if self.ids:
             self.status.setText("%s (показан кэш: %d версий)"
                                 % (message, len(self.ids)))
@@ -250,9 +191,9 @@ class VersionDialog(QDialog):
             it = QListWidgetItem(label)
             it.setData(Qt.UserRole, vid)
             if inst:
-                it.setForeground(QBrush(QColor("#86efac")))
+                it.setForeground(QBrush(QColor("#7fbf8f")))
             elif suffix:
-                it.setForeground(QBrush(QColor("#c9a8b8")))
+                it.setForeground(QBrush(QColor("#8b8f98")))
             self.listw.addItem(it)
             if vid == self.current:
                 current_row = self.listw.count() - 1
@@ -271,7 +212,7 @@ class VersionDialog(QDialog):
         self.btn_pick.set_disabled(not has)
         self.btn_download.set_disabled(not has)
 
-    # --- действия ----------------------------------------------------------
+    # --- действия --------------------------------------------------------
     def _pick(self):
         vid = self._selected()
         if not vid:
@@ -287,138 +228,158 @@ class VersionDialog(QDialog):
         self.close()
         self.download_requested.emit(vid)
 
-    # --- окно --------------------------------------------------------------
+    # --- окно ------------------------------------------------------------
     def _qss(self):
         return """
-            QDialog { background: #1a0c16; }
-            QLabel#dlgTitle { color: #fff8f2; font-size: 20px; font-weight: 700; }
-            QLabel#dlgSub { color: #b9a3b4; font-size: 12px; }
-            QLabel#dlgHint { font-size: 12px; min-height: 16px; color: #86efac; }
+            QDialog { background: #17181d; }
+            QLabel#dlgTitle { color: #eceef2; font-size: 20px; font-weight: 700; }
+            QLabel#dlgSub { color: #8b8f98; font-size: 12px; }
+            QLabel#dlgHint { font-size: 12px; min-height: 16px; color: #7fbf8f; }
             QLineEdit#dlgEdit {
-                background: #1c1024; border: 1px solid rgba(255,255,255,0.13);
-                border-radius: 10px; padding: 9px 12px; color: #fff8f2;
-                font-size: 14px; selection-background-color: #ffb703;
-                selection-color: #1a0a10;
+                background: #1c1d22; border: 1px solid #2a2b31;
+                border-radius: 9px; padding: 9px 12px; color: #eceef2;
+                font-size: 14px; selection-background-color: #c9a45c;
+                selection-color: #1c1609;
             }
-            QLineEdit#dlgEdit:focus { border: 1px solid #ffb703; }
+            QLineEdit#dlgEdit:focus { border: 1px solid #c9a45c; }
             QListWidget#acctList {
-                background: #120910; border: 1px solid rgba(255,255,255,0.09);
-                border-radius: 12px; padding: 6px; color: #fff8f2;
+                background: #141519; border: 1px solid #2a2b31;
+                border-radius: 10px; padding: 6px; color: #eceef2;
                 font-size: 14px; outline: none;
             }
-            QListWidget#acctList::item { padding: 9px 12px; border-radius: 8px; }
-            QListWidget#acctList::item:hover { background: rgba(255,255,255,0.06); }
+            QListWidget#acctList::item { padding: 9px 12px; border-radius: 7px; }
+            QListWidget#acctList::item:hover { background: rgba(255,255,255,0.05); }
             QListWidget#acctList::item:selected {
-                background: rgba(255,183,3,0.09); color: #ffe7b0;
-                border: 1px solid #ffb703;
+                background: rgba(201,164,92,0.14); color: #e8cf9a;
+                border: 1px solid rgba(201,164,92,0.55);
             }
             QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }
             QScrollBar::handle:vertical {
-                background: #3a2148; border-radius: 4px; min-height: 24px;
+                background: #34353c; border-radius: 4px; min-height: 24px;
             }
             QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
         """
 
 
-class LaunchPanel(CardPanel):
-    """Карточка «Запуск»."""
+class LaunchPanel(QWidget):
+    """Страница «Версии» (1144x640)."""
 
     play_clicked = pyqtSignal()
     version_chosen = pyqtSignal(str)
-    download_version = pyqtSignal(str)   # запросить установку выбранной версии
+    download_version = pyqtSignal(str)
+    memory_changed = pyqtSignal(int)
 
     MEM_MIN, MEM_MAX, MEM_STEP = 4096, 8192, 512
 
     def __init__(self, cfg, k=1.0, parent=None):
-        super().__init__(round(430 * k), round(648 * k), radius=22,
-                         border="#18ffffff", parent=parent)
+        super().__init__(parent)
         self.k = float(k)
         self.cfg = cfg
+        self._version_ids = []
+        self._version_types = {}
+        self._installed_cache = set()
+        self._current = self.cfg.last_version
+        self.setFixedSize(round(1144 * k), round(640 * k))
         self._build()
 
     def _build(self):
         k = self.k
 
-        # --- заголовок ----------------------------------------------------
-        self.lbl_title = add_label(self, k, 24, 38, 22, 700, 300, "Запуск")
-        self.lbl_status = add_label(self, k, 24, 60, 12, 500, 300,
-                                    "сессия готова", color="#86efac")
-
-        # --- плашка версии 382x78 (24,80) ---------------------------------
-        self.plate = PanelBox(round(382 * k), round(78 * k), radius=16,
-                              fill="#120910", border="#14ffffff", parent=self)
-        self.plate.move(round(24 * k), round(80 * k))
-        add_label(self.plate, k, 20, 28, 12, 500, 200, "Minecraft",
-                  color="#b9a3b4")
-        self.lbl_version = add_label(self.plate, k, 20, 56, 22, 700, 210,
+        # ------------------------------------------------- текущая версия
+        self.card_cur = CardPanel(round(1144 * k), round(158 * k),
+                                  radius=14, border="#26272d", parent=self)
+        add_label(self.card_cur, k, 26, 34, 11, 700, 300,
+                  "ТЕКУЩАЯ ВЕРСИЯ", color="#8b8f98")
+        self.lbl_version = add_label(self.card_cur, k, 26, 82, 32, 800, 400,
                                      self.cfg.last_version)
-        # зона клика по версии
-        self._ver_hit = _ClickZone(self.plate)
-        self._ver_hit.setGeometry(round(14 * k), round(30 * k),
-                                  round(230 * k), round(44 * k))
-        self._ver_hit.clicked.connect(self._open_versions)
-        self._ver_hit.setToolTip("Выбрать или скачать версию Minecraft")
+        self.badge = Badge("готова", k=k, color="#7fbf8f",
+                           parent=self.card_cur)
+        self.badge.move(round(26 * k), round(98 * k))
+        self.lbl_ready = add_label(self.card_cur, k, 110, 114, 12, 500, 520,
+                                   "Установлена и готова к запуску",
+                                   color="#8b8f98")
+        self.lbl_meta = add_label(self.card_cur, k, 26, 138, 11.5, 500, 700,
+                                  "", color="#62666e")
 
-        # вместо чипа «Моды» — выбор версии (110x30, 248,28)
-        self.btn_version = FxButton("Версия ▾", kind="chip",
-                                    w_=round(110 * k), h_=round(30 * k),
-                                    radius=10, px=13, svg_w=700,
-                                    tooltip="Выбрать или скачать версию",
-                                    parent=self.plate)
-        self.btn_version.move(round(248 * k), round(28 * k))
-        self.btn_version.clicked.connect(self._open_versions)
-
-        # --- блок 382x360 (24,174) ----------------------------------------
-        self.block = _InfoBlock(382, 360, k=k, parent=self)
-        self.block.move(round(24 * k), round(174 * k))
-
-        add_label(self.block, k, 20, 28, 12, 500, 200, "Память",
-                  color="#b9a3b4")
-        self.lbl_mem = add_label(self.block, k, 162, 28, 14, 600, 200, "6 GB",
-                                 align=Qt.AlignRight | Qt.AlignVCenter)
-        self.slider = GradientSlider(self.MEM_MIN, self.MEM_MAX, self.MEM_STEP,
-                                     self.cfg.memory_mb, 342, k=k,
-                                     parent=self.block)
-        self.slider.move(round(20 * k), round(36 * k))
-        self.slider.valueChanged.connect(self._on_memory)
-
-        add_label(self.block, k, 20, 96, 12, 500, 200, "Java", color="#b9a3b4")
-        self.lbl_java = add_label(self.block, k, 162, 96, 14, 600, 200,
-                                  "21 Temurin",
-                                  align=Qt.AlignRight | Qt.AlignVCenter)
-
-        add_label(self.block, k, 20, 164, 12, 500, 200, "Папка",
-                  color="#b9a3b4")
-        self.lbl_folder = add_label(self.block, k, 120, 164, 14, 600, 242,
-                                    "", align=Qt.AlignRight | Qt.AlignVCenter)
-
-        add_label(self.block, k, 20, 232, 12, 500, 200, "Моды",
-                  color="#b9a3b4")
-        self.lbl_mods = add_label(self.block, k, 162, 232, 14, 600, 200,
-                                  "Из коробки",
-                                  align=Qt.AlignRight | Qt.AlignVCenter)
-
-        self.lbl_ready = add_label(self.block, k, 20, 318, 13, 500, 300,
-                                   "Готово к запуску", color="#86efac")
-
-        # --- ИГРАТЬ 382x70 (24,554) ---------------------------------------
-        self.btn_play = FxButton("ИГРАТЬ", kind="sun",
-                                 w_=round(382 * k), h_=round(70 * k),
-                                 radius=18, px=22, svg_w=800, letter=3.0 * k,
-                                 glow="#ff7a4d", parent=self)
-        self.btn_play.move(round(24 * k), round(554 * k))
+        ico_play = theme.icon_pixmap(theme.ICON_PLAY, round(13 * k),
+                                     "#1c1609", stroke=1.8, fill="#1c1609")
+        self.btn_play = FxButton("Играть", kind="sun",
+                                 w_=round(146 * k), h_=round(42 * k),
+                                 radius=9, px=14, svg_w=700,
+                                 icon=ico_play, gap=8, parent=self.card_cur)
+        self.btn_play.move(round(972 * k), round(50 * k))
         self.btn_play.clicked.connect(self.play_clicked.emit)
+        ico_ref = theme.icon_pixmap(theme.ICON_REFRESH, round(14 * k),
+                                    "#c7cad1", stroke=1.7)
+        self.btn_dl_current = FxButton("Обновить", kind="ghost",
+                                       w_=round(146 * k), h_=round(42 * k),
+                                       radius=9, px=13, svg_w=600,
+                                       icon=ico_ref, gap=8,
+                                       parent=self.card_cur)
+        self.btn_dl_current.move(round(972 * k), round(100 * k))
+        self.btn_dl_current.clicked.connect(self._download_current)
 
-    # --- версии ------------------------------------------------------------
-    def _open_versions(self):
-        """Диалог выбора/скачивания версии (все версии + снапшоты, онлайн)."""
-        ids = list(getattr(self, "_version_ids", None) or [])
-        types = dict(getattr(self, "_version_types", None) or {})
-        dlg = VersionDialog(self.cfg.last_version, ids, types=types,
-                            parent=self.window())
-        dlg.chosen.connect(self.version_chosen.emit)
-        dlg.download_requested.connect(self.download_version.emit)
-        dlg.exec_()
+        # ------------------------------------------------------ каталог
+        self.card_list = CardPanel(round(1144 * k), round(462 * k),
+                                   radius=14, border="#26272d", parent=self)
+        self.card_list.move(0, round(178 * k))
+        add_label(self.card_list, k, 24, 34, 11, 700, 300,
+                  "КАТАЛОГ ВЕРСИЙ", color="#8b8f98")
+        self.lbl_count = add_label(
+            self.card_list, k, 24, 34, 11, 500, 1096, "",
+            color="#62666e", align=Qt.AlignRight | Qt.AlignVCenter)
+
+        self.filter = QLineEdit(self.card_list)
+        self.filter.setObjectName("versionFilter")
+        self.filter.setPlaceholderText("Поиск версии, например 1.21 или 1.7.10")
+        self.filter.setGeometry(round(24 * k), round(50 * k),
+                                round(700 * k), round(38 * k))
+        self.filter.textChanged.connect(self._populate)
+        self.btn_refresh = FxButton("Обновить список", kind="ghost",
+                                    w_=round(170 * k), h_=round(38 * k),
+                                    radius=9, px=13, svg_w=600,
+                                    parent=self.card_list)
+        self.btn_refresh.move(round(740 * k), round(50 * k))
+        self.btn_refresh.clicked.connect(self._request_versions)
+
+        self.listw = QListWidget(self.card_list)
+        self.listw.setObjectName("versionsList")
+        self.listw.setGeometry(round(24 * k), round(100 * k),
+                               round(1096 * k), round(250 * k))
+        self.listw.currentItemChanged.connect(self._selection_changed)
+        self.listw.itemDoubleClicked.connect(lambda _it: self._choose())
+
+        self.lbl_status = add_label(self.card_list, k, 24, 378, 11.5, 500,
+                                    500, "Список версий загружается…",
+                                    color="#62666e")
+        ico_chev = theme.icon_pixmap(theme.ICON_CHEVRON, round(13 * k),
+                                     "#1c1609", stroke=1.8)
+        self.btn_choose = FxButton("Выбрать", kind="sun",
+                                   w_=round(140 * k), h_=round(40 * k),
+                                   radius=9, px=13, svg_w=700,
+                                   parent=self.card_list)
+        self.btn_choose.move(round(690 * k), round(364 * k))
+        self.btn_choose.clicked.connect(self._choose)
+        self.btn_download = FxButton("Скачать", kind="ghost",
+                                     w_=round(140 * k), h_=round(40 * k),
+                                     radius=9, px=13, svg_w=600,
+                                     parent=self.card_list)
+        self.btn_download.move(round(846 * k), round(364 * k))
+        self.btn_download.clicked.connect(self._download_selected)
+        self._selection_changed()
+
+    # --- данные ----------------------------------------------------------
+    def _request_versions(self):
+        self.lbl_status.setText("Загрузка списка версий…")
+        from ..workers.download_worker import VersionsWorker
+        worker = VersionsWorker(self)
+        worker.loaded.connect(self.set_version_ids)
+        worker.failed.connect(
+            lambda msg: self.lbl_status.setText(
+                "Не удалось загрузить список: %s" % str(msg)[:70]))
+        worker.finished.connect(worker.deleteLater)
+        self._worker = worker
+        worker.start()
 
     def set_version_ids(self, ids):
         """Принимает список id или [{"id","type"}] (включая снапшоты)."""
@@ -437,55 +398,128 @@ class LaunchPanel(CardPanel):
             types[vid] = typ
         self._version_ids = out
         self._version_types = types
+        self._installed_cache = self._scan_installed()
+        self._populate()
 
-    # --- обновления --------------------------------------------------------
+    def _scan_installed(self):
+        try:
+            base = Path(self.cfg.game_dir) / "versions"
+            if base.is_dir():
+                return {p.name for p in base.iterdir() if p.is_dir()}
+        except Exception:
+            pass
+        return set()
+
+    def _populate(self, *_a):
+        text = (self.filter.text() or "").strip().lower()
+        self.listw.blockSignals(True)
+        self.listw.clear()
+        current_row = -1
+        for vid in self._version_ids:
+            if text and text not in vid.lower():
+                continue
+            typ = self._version_types.get(vid, "release")
+            inst = vid in self._installed_cache
+            suffix = {"snapshot": "· снапшот",
+                      "old_beta": "· old beta",
+                      "old_alpha": "· old alpha"}.get(typ, "")
+            mark = "✓ установлено" if inst else suffix
+            label = ("%s    %s" % (vid, mark)).rstrip()
+            it = QListWidgetItem(label)
+            it.setData(Qt.UserRole, vid)
+            if vid == self._current:
+                it.setForeground(QBrush(QColor("#e8cf9a")))
+            elif inst:
+                it.setForeground(QBrush(QColor("#7fbf8f")))
+            elif suffix:
+                it.setForeground(QBrush(QColor("#8b8f98")))
+            self.listw.addItem(it)
+            if vid == self._current:
+                current_row = self.listw.count() - 1
+        if current_row >= 0:
+            self.listw.setCurrentRow(current_row)
+        elif self.listw.count():
+            self.listw.setCurrentRow(0)
+        self.listw.blockSignals(False)
+        self.lbl_count.setText("%d версий" % len(self._version_ids))
+        if not self._version_ids:
+            self.lbl_status.setText("Список версий загружается…")
+        else:
+            self.lbl_status.setText(
+                "Установлено: %d · выберите версию и нажмите «Выбрать»"
+                % len(self._installed_cache))
+        self._selection_changed()
+
+    def _selected(self):
+        it = self.listw.currentItem()
+        return it.data(Qt.UserRole) if it else None
+
+    def _selection_changed(self, *_a):
+        has = self._selected() is not None
+        self.btn_choose.set_disabled(not has)
+        self.btn_download.set_disabled(not has)
+
+    def _choose(self):
+        vid = self._selected()
+        if vid:
+            self.version_chosen.emit(vid)
+
+    def _download_selected(self):
+        vid = self._selected()
+        if vid:
+            self.download_version.emit(vid)
+
+    def _download_current(self):
+        self.download_version.emit(self.cfg.last_version)
+
+    # --- совместимость ----------------------------------------------------
+    def _open_versions(self):
+        """Старый вызов из MainWindow: открыть диалог выбора версии."""
+        ids = list(self._version_ids or [])
+        types = dict(self._version_types or {})
+        dlg = VersionDialog(self.cfg.last_version, ids, types=types,
+                            parent=self.window())
+        dlg.chosen.connect(self.version_chosen.emit)
+        dlg.download_requested.connect(self.download_version.emit)
+        dlg.exec_()
+
     def set_version(self, vid):
+        self._current = str(vid)
         self.lbl_version.setText(str(vid))
+        px = 32 if len(str(vid)) <= 10 else 24
+        self.lbl_version.setFont(theme.font(px * self.k, 800))
+        self._populate()
 
-    def set_status(self, text, color="#86efac"):
-        self.lbl_status.setText(text)
-        pal = self.lbl_status.palette()
-        pal.setColor(self.lbl_status.foregroundRole(), QColor(color))
-        self.lbl_status.setPalette(pal)
+    def set_status(self, text, color="#7fbf8f"):
+        pass
 
     def set_ready(self, flag, text=None):
-        self.lbl_ready.setText(text if text is not None else
-                               ("Готово к запуску" if flag
-                                else "Требуется установка"))
-        pal = self.lbl_ready.palette()
-        pal.setColor(self.lbl_ready.foregroundRole(),
-                     QColor("#86efac" if flag else "#ffb703"))
-        self.lbl_ready.setPalette(pal)
+        self.badge.set_text("готова" if flag else "не готова")
+        self.badge.set_color("#7fbf8f" if flag else "#c9a45c")
+        self.lbl_ready.setText(
+            text if text is not None else
+            ("Установлена и готова к запуску" if flag
+             else "Требуется установка клиента или Java"))
 
     def set_busy(self, flag):
         self.btn_play.set_disabled(bool(flag))
-        self.btn_play.set_text("ЗАПУСК..." if flag else "ИГРАТЬ")
+        self.btn_play.set_text("Запуск…" if flag else "Играть")
 
     def set_java(self, text):
-        self.lbl_java.setText(text)
+        self.lbl_meta.setText("Java: %s" % text)
 
     def set_folder(self, path):
-        self.lbl_folder.setText(elide_path(path, 14, 242, self.k))
-        self.lbl_folder.setToolTip(str(path))
+        self._installed_cache = self._scan_installed()
+        self._populate()
 
     def set_mods(self, text):
-        self.lbl_mods.setText(text)
+        pass
 
     def set_memory_mb(self, mb):
-        if mb != self.slider.value():
-            self.slider.set_value(mb, emit=False)
-        self._mem_label(mb)
+        self.cfg.memory_mb = int(mb)
 
     def _mem_label(self, mb):
-        if mb % 1024 == 0:
-            txt = "%d GB" % (mb // 1024)
-        else:
-            txt = "%d MB" % mb
-        self.lbl_mem.setText(txt)
+        pass
 
     def _on_memory(self, mb):
-        self._mem_label(mb)
-        self.cfg.memory_mb = mb
         self.memory_changed.emit(mb)
-
-    memory_changed = pyqtSignal(int)

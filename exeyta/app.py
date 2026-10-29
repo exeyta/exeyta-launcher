@@ -81,7 +81,7 @@ def run() -> int:
     except Exception:
         pass
 
-    # масштаб окна с сохранением пропорций 1864x1036
+    # масштаб окна с сохранением пропорций 1440x900
     from .core import config as cfgmod2
     screen = app.primaryScreen()
     k = 1.0

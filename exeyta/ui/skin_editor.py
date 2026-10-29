@@ -304,12 +304,12 @@ class CanvasWidget(QWidget):
             k = self.k
             w_, h_ = round(488 * k), round(424 * k)
             pm = QPixmap(w_, h_)
-            pm.fill(QColor("#1c1024"))
+            pm.fill(QColor("#1c1d22"))
             p = QPainter(pm)
             cell = round(8 * k)
-            p.fillRect(0, 0, w_, h_, QColor("#1c1024"))
+            p.fillRect(0, 0, w_, h_, QColor("#1c1d22"))
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor("#2a1834"))
+            p.setBrush(QColor("#2a2b31"))
             rows = h_ // cell + 1
             cols = w_ // cell + 1
             for ry in range(rows):
@@ -368,9 +368,9 @@ class CanvasWidget(QWidget):
         k = self.k
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#0c0610"))
+        p.setBrush(QColor("#101115"))
         p.drawRoundedRect(r, 16 * k, 16 * k)
-        pen = QPen(QColor("#10ffffff"))
+        pen = QPen(QColor("#16ffffff"))
         pen.setWidthF(1.0)
         p.setPen(pen)
         p.setBrush(Qt.NoBrush)
@@ -408,7 +408,7 @@ class CanvasWidget(QWidget):
         # подсветка текселя
         if self._hover_texel is not None:
             tx, ty = self._hover_texel
-            hl = QPen(QColor("#ffe7b0"))
+            hl = QPen(QColor("#e8cf9a"))
             hl.setWidthF(max(1.5, 2 * k))
             p.setPen(hl)
             p.setBrush(Qt.NoBrush)
@@ -416,7 +416,7 @@ class CanvasWidget(QWidget):
         p.restore()
 
         # надписи из макета (поверх, полупрозрачно)
-        pink = QColor("#ffd0e0")
+        pink = QColor("#e8cf9a")
         pink.setAlpha(210)
         f = theme.font(12 * k, w(600))
         draw_base(p, 40 * k, 34 * k, "Голова", f, pink, wide=round(200 * k))
@@ -544,8 +544,8 @@ class Preview3D(QWidget):
         p.setClipPath(rounded_path(r, 16 * k))
         g = QRadialGradient(r.center().x(), r.top() + r.height() * 0.4,
                             r.height() * 0.65)
-        g.setColorAt(0.0, QColor("#5a2a48"))
-        g.setColorAt(1.0, QColor("#0c0610"))
+        g.setColorAt(0.0, QColor("#3a3020"))
+        g.setColorAt(1.0, QColor("#101115"))
         p.fillRect(r, g)
 
         # свечение + тень под фигурой (из макета)
@@ -559,7 +559,7 @@ class Preview3D(QWidget):
         p.restore()
 
         # рамка
-        pen = QPen(QColor("#10ffffff"))
+        pen = QPen(QColor("#16ffffff"))
         pen.setWidthF(1.0)
         p.setPen(pen)
         p.setBrush(Qt.NoBrush)
@@ -569,7 +569,7 @@ class Preview3D(QWidget):
         f = theme.font(12 * k, w(700))
         f.setLetterSpacing(QFont.AbsoluteSpacing, 2 * k)
         p.setFont(f)
-        p.setPen(QColor("#d7ecff"))
+        p.setPen(QColor("#e2e4e9"))
         p.drawText(QRectF(0, 16 * k, r.width(), 24 * k),
                    Qt.AlignHCenter | Qt.AlignTop, "3D")
 
@@ -578,7 +578,7 @@ class Preview3D(QWidget):
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(0, 0, 0, 68))
         p.drawRoundedRect(pill, 10 * k, 10 * k)
-        p.setPen(QColor("#d7c4d0"))
+        p.setPen(QColor("#8b8f98"))
         p.setFont(theme.font(12 * k, w(500)))
         p.drawText(pill, Qt.AlignCenter, "вращение мышью")
         p.end()
@@ -741,7 +741,7 @@ class SkinEditorPanel(CardPanel):
 
     def __init__(self, cfg, accounts, k=1.0, parent=None):
         super().__init__(round(1090 * k), round(648 * k), radius=22,
-                         border="#28ff4d88", parent=parent)
+                         border="#26c9a45c", parent=parent)
         self.k = float(k)
         self.cfg = cfg
         self.accounts = accounts
@@ -856,7 +856,7 @@ class SkinEditorPanel(CardPanel):
 
         # --- инструменты 76x448 (28,76) -----------------------------------
         tools = PanelBox(round(76 * k), round(448 * k), radius=16,
-                         fill="#100810", border="#10ffffff", parent=self)
+                         fill="#15161a", border="#16ffffff", parent=self)
         tools.move(round(28 * k), round(76 * k))
         specs = [
             ("P", theme.ICON_PENCIL, "Карандаш (P)"),
@@ -874,12 +874,12 @@ class SkinEditorPanel(CardPanel):
             btn.clicked.connect(lambda kk=key: self._on_tool(kk))
             self.tool_btns[key] = btn
         self.lbl_px = add_label(tools, k, 0, 424, 11, 500, 76, "1 px",
-                                color="#b9a3b4", align=Qt.AlignCenter)
+                                color="#8b8f98", align=Qt.AlignCenter)
         self.tool_btns["P"].set_checked(True)
 
         # --- палитра 70x448 (118,76) --------------------------------------
         pal = PanelBox(round(70 * k), round(448 * k), radius=16,
-                       fill="#100810", border="#10ffffff", parent=self)
+                       fill="#15161a", border="#16ffffff", parent=self)
         pal.move(round(118 * k), round(76 * k))
         self.swatches = []
         for i, color in enumerate(PALETTE):
@@ -926,14 +926,14 @@ class SkinEditorPanel(CardPanel):
 
         # статусная строка (пусто, пока нет сообщений)
         self.lbl_hint = add_label(self, k, 28, 614, 12, 500, 700, "",
-                                  color="#86efac")
+                                  color="#7fbf8f")
         self._built = True
 
     # --- инструменты/цвета -------------------------------------------------
     def _on_tool(self, key):
         if key == "U":
             if self.canvas.undo():
-                self._hint("Изменение отменено", "#86efac")
+                self._hint("Изменение отменено", "#7fbf8f")
             return
         if key in ("+", "-"):
             self.canvas.zoom(1 if key == "+" else -1)
@@ -943,7 +943,7 @@ class SkinEditorPanel(CardPanel):
         for kk, btn in self.tool_btns.items():
             btn.set_checked(kk == key)
         names = {"P": "Карандаш", "F": "Заливка", "E": "Ластик"}
-        self._hint(names.get(key, ""), "#b9a3b4")
+        self._hint(names.get(key, ""), "#8b8f98")
 
     def _on_color(self, color):
         self._color = color
@@ -963,10 +963,10 @@ class SkinEditorPanel(CardPanel):
         try:
             self.composite().save(str(path), "PNG")
             self.accounts.set_skin(str(path))
-            self._hint("Скин сохранён: %s" % path.name, "#86efac")
+            self._hint("Скин сохранён: %s" % path.name, "#7fbf8f")
             self.skin_saved.emit(str(path))
         except Exception as e:
-            self._hint("Ошибка сохранения: %s" % e, "#ff4d6d")
+            self._hint("Ошибка сохранения: %s" % e, "#d97a7a")
 
     def import_png(self):
         from PyQt5.QtWidgets import QFileDialog
@@ -976,12 +976,12 @@ class SkinEditorPanel(CardPanel):
             return
         img = QImage(path)
         if img.isNull():
-            self._hint("Не удалось прочитать PNG", "#ff4d6d")
+            self._hint("Не удалось прочитать PNG", "#d97a7a")
             return
         self.set_skin(img)
         import os
         self._hint("Импортировано: %s (слои: база + накладка)"
-                   % os.path.basename(path), "#86efac")
+                   % os.path.basename(path), "#7fbf8f")
 
     def export_png(self):
         from PyQt5.QtWidgets import QFileDialog
@@ -991,9 +991,9 @@ class SkinEditorPanel(CardPanel):
         if not path:
             return
         if self.composite().save(path, "PNG"):
-            self._hint("Экспортировано", "#86efac")
+            self._hint("Экспортировано", "#7fbf8f")
         else:
-            self._hint("Ошибка экспорта", "#ff4d6d")
+            self._hint("Ошибка экспорта", "#d97a7a")
 
     def apply_ingame(self):
         """Сохраняет скин, назначает аккаунту и ставит его в клиентский jar."""
@@ -1005,7 +1005,7 @@ class SkinEditorPanel(CardPanel):
             self.skin_applied.emit(str(path))
             self._start_patch(str(path), nick)
         except Exception as e:
-            self._hint("Ошибка: %s" % e, "#ff4d6d")
+            self._hint("Ошибка: %s" % e, "#d97a7a")
 
     def _start_patch(self, path, nick):
         """Подмена стандартного скина в клиенте текущей версии (QThread)."""
@@ -1013,7 +1013,7 @@ class SkinEditorPanel(CardPanel):
             return   # уже применяется
         from ..workers.download_worker import SkinPatchWorker
         ver = str(self.cfg.get("last_version"))
-        self._hint("Применяю скин к клиенту %s…" % nick, "#ffd0e0")
+        self._hint("Применяю скин к клиенту %s…" % nick, "#e8cf9a")
         w = SkinPatchWorker(ver, path, game_dir=self.cfg.game_dir,
                             parent=self)
         self._patcher = w
@@ -1022,25 +1022,25 @@ class SkinEditorPanel(CardPanel):
             self._patcher = None
             if res == "skip":
                 self._hint("Скин уже в клиенте %s — запускайте" % ver,
-                           "#86efac")
+                           "#7fbf8f")
             elif res.startswith("applied"):
                 self._hint("Скин применён к клиенту %s — запускайте игру"
-                           % ver, "#86efac")
+                           % ver, "#7fbf8f")
             elif res == "none":
                 self._hint("Текстуры скина не найдены — установите версию %s"
-                           % ver, "#ffb703")
+                           % ver, "#c9a45c")
             else:
-                self._hint("Готово: %s" % res, "#86efac")
+                self._hint("Готово: %s" % res, "#7fbf8f")
 
         def _bad(msg):
             self._patcher = None
-            self._hint("Скин не применён: %s" % str(msg)[:70], "#ff4d6d")
+            self._hint("Скин не применён: %s" % str(msg)[:70], "#d97a7a")
 
         w.done.connect(_ok)
         w.failed.connect(_bad)
         w.start()
 
-    def _hint(self, text, color="#86efac"):
+    def _hint(self, text, color="#7fbf8f"):
         self.lbl_hint.setText(text)
         pal = self.lbl_hint.palette()
         pal.setColor(self.lbl_hint.foregroundRole(), QColor(color))

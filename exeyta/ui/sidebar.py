@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Сайдбар лаунчера (280px, на всю высоту) — 1:1 с assets/launcher-ui.svg.
+"""Сайдбар лаунчера: 232px, спокойная тёмная панель.
 
-Логотип, навигация, СООБЩЕСТВО (Telegram), карточка аккаунта внизу
-со статусом «Premium Offline» и шестерёнкой (управление аккаунтами).
+Сверху — название и навигация (Главная / Версии / Настройки / Консоль /
+Скины), снизу — сообщество, карточка offline-аккаунта и версия лаунчера.
 """
 from PyQt5.QtCore import QPointF, QRectF, Qt, pyqtSignal
 from PyQt5.QtGui import (QBrush, QColor, QFont, QFontMetricsF,
@@ -15,24 +15,33 @@ from PyQt5.QtWidgets import (QDialog, QHBoxLayout, QLabel, QLineEdit,
 from exeyta_shared import theme
 from exeyta_shared.animations import HoverFader
 
-from .controls import (FxButton, add_label, apply_glow, draw_base, lerp_color,
+from .controls import (FxButton, add_label, draw_base, lerp_color,
                        rounded_path, w)
 
 
 # ---------------------------------------------------------------------------
-# Кнопка Telegram (232x50, #2AABEE + glow)
+# Ссылка сайдбара (Telegram / текстурпак)
 # ---------------------------------------------------------------------------
-class TelegramButton(QWidget):
+class _LinkRow(QWidget):
     clicked = pyqtSignal()
 
-    def __init__(self, k=1.0, parent=None, url=theme.TELEGRAM_URL):
+    def __init__(self, text, icon_svg=None, k=1.0, parent=None):
         super().__init__(parent)
         self.k = float(k)
-        self._url = url
-        self.setFixedSize(round(232 * k), round(50 * k))
+        self._text = text
+        self._icon_svg = icon_svg
+        self._pm = None
+        self.setFixedSize(round(192 * k), round(32 * k))
         self.setCursor(Qt.PointingHandCursor)
-        self._hover = HoverFader(self, ms=220)
-        apply_glow(self, "#2AABEE", blur=26, alpha=130)
+        self._hover = HoverFader(self, ms=160)
+
+    def _icon(self):
+        if self._icon_svg is None:
+            return None
+        if self._pm is None:
+            self._pm = theme.icon_pixmap(
+                self._icon_svg, round(16 * self.k), "#8b8f98", stroke=1.7)
+        return self._pm
 
     def enterEvent(self, event):
         self._hover.target(True)
@@ -57,20 +66,20 @@ class TelegramButton(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         k = self.k
         t = self._hover.hoverT
-        inset = (2.0 if getattr(self, "_pressed", False) else 0.0)
-        r = QRectF(self.rect()).adjusted(inset, inset, -inset, -inset)
-        bg = lerp_color("#2AABEE", "#4dc0f5", t)
-        p.setPen(Qt.NoPen)
-        p.setBrush(bg)
-        p.drawRoundedRect(r, 16 * k, 16 * k)
-        # бумажный самолётик (из макета): 78,447 116,455 78,463 88,455
-        pts = [QPointF(26 * k, 17 * k), QPointF(64 * k, 25 * k),
-               QPointF(26 * k, 33 * k), QPointF(36 * k, 25 * k)]
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#ffffff"))
-        p.drawPolygon(QPolygonF(pts))
-        f = theme.font(15 * k, w(700))
-        draw_base(p, 80 * k, 30 * k, "Telegram", f, "#ffffff", wide=round(120 * k))
+        if t > 0.02:
+            p.fillPath(rounded_path(QRectF(self.rect()).adjusted(
+                0.5, 0.5, -0.5, -0.5), 7 * k),
+                QColor(255, 255, 255, round(7 * t)))
+        color = lerp_color("#8b8f98", "#e2e4e9", t).name()
+        icon = self._icon()
+        x = 10 * k
+        if icon is not None:
+            p.drawPixmap(round(x), round((self.height() - icon.height()) / 2),
+                         icon)
+            x += 22 * k
+        f = theme.font(12.5 * k, 50)
+        draw_base(p, x, 21 * k, self._text, f, color,
+                  wide=round(150 * k))
         p.end()
 
 
@@ -111,18 +120,18 @@ class AccountsDialog(QDialog):
         self.edit.setPlaceholderText("Ник (латиница, цифры, _, до 16)")
         self.edit.setMaxLength(16)
         row.addWidget(self.edit, 1)
-        btn_add = FxButton("Добавить", kind="chip", w_=110, h_=38, radius=12,
+        btn_add = FxButton("Добавить", kind="chip", w_=110, h_=38, radius=9,
                            px=13, svg_w=700)
         btn_add.clicked.connect(self.on_add)
         row.addWidget(btn_add)
         root.addLayout(row)
 
         row2 = QHBoxLayout()
-        btn_del = FxButton("Удалить", kind="danger", w_=110, h_=38, radius=12,
+        btn_del = FxButton("Удалить", kind="danger", w_=110, h_=38, radius=9,
                            px=13, svg_w=600)
         btn_del.clicked.connect(self.on_remove)
         btn_sel = FxButton("Выбрать активный", kind="sun", w_=180, h_=38,
-                           radius=12, px=13, svg_w=700)
+                           radius=9, px=13, svg_w=700)
         btn_sel.clicked.connect(self.on_select)
         row2.addWidget(btn_del)
         row2.addStretch(1)
@@ -133,7 +142,7 @@ class AccountsDialog(QDialog):
         self.hint.setObjectName("dlgHint")
         root.addWidget(self.hint)
 
-        btn_close = FxButton("Закрыть", kind="ghost", w_=412, h_=40, radius=12,
+        btn_close = FxButton("Закрыть", kind="ghost", w_=412, h_=40, radius=9,
                              px=13, svg_w=600)
         btn_close.clicked.connect(self.accept)
         root.addWidget(btn_close)
@@ -142,31 +151,31 @@ class AccountsDialog(QDialog):
 
     def _dlg_qss(self):
         return """
-            QDialog { background: #1a0c16; }
-            QLabel#dlgTitle { color: #fff8f2; font-size: 20px; font-weight: 700; }
-            QLabel#dlgSub { color: #b9a3b4; font-size: 12px; }
-            QLabel#dlgHint { color: #ff4d6d; font-size: 12px; min-height: 16px; }
+            QDialog { background: #17181d; }
+            QLabel#dlgTitle { color: #eceef2; font-size: 20px; font-weight: 700; }
+            QLabel#dlgSub { color: #8b8f98; font-size: 12px; }
+            QLabel#dlgHint { color: #d97a7a; font-size: 12px; min-height: 16px; }
             QLineEdit#dlgEdit {
-                background: #1c1024; border: 1px solid rgba(255,255,255,0.13);
-                border-radius: 10px; padding: 8px 12px; color: #fff8f2;
-                font-size: 14px; selection-background-color: #ffb703;
-                selection-color: #1a0a10;
+                background: #1c1d22; border: 1px solid #2a2b31;
+                border-radius: 9px; padding: 8px 12px; color: #eceef2;
+                font-size: 14px; selection-background-color: #c9a45c;
+                selection-color: #1c1609;
             }
-            QLineEdit#dlgEdit:focus { border: 1px solid #ffb703; }
+            QLineEdit#dlgEdit:focus { border: 1px solid #c9a45c; }
             QListWidget#acctList {
-                background: #120910; border: 1px solid rgba(255,255,255,0.09);
-                border-radius: 12px; padding: 6px; color: #fff8f2;
+                background: #141519; border: 1px solid #2a2b31;
+                border-radius: 10px; padding: 6px; color: #eceef2;
                 font-size: 14px; outline: none;
             }
-            QListWidget#acctList::item { padding: 10px 12px; border-radius: 8px; }
-            QListWidget#acctList::item:hover { background: rgba(255,255,255,0.06); }
+            QListWidget#acctList::item { padding: 10px 12px; border-radius: 7px; }
+            QListWidget#acctList::item:hover { background: rgba(255,255,255,0.05); }
             QListWidget#acctList::item:selected {
-                background: rgba(255,183,3,0.09); color: #ffe7b0;
-                border: 1px solid #ffb703;
+                background: rgba(201,164,92,0.14); color: #e8cf9a;
+                border: 1px solid rgba(201,164,92,0.55);
             }
             QScrollBar:vertical { background: transparent; width: 8px; margin: 2px; }
             QScrollBar::handle:vertical {
-                background: #3a2148; border-radius: 4px; min-height: 24px;
+                background: #34353c; border-radius: 4px; min-height: 24px;
             }
             QScrollBar::add-line, QScrollBar::sub-line { height: 0; }
         """
@@ -183,7 +192,6 @@ class AccountsDialog(QDialog):
             if active:
                 it.setToolTip("Активный offline-аккаунт")
             self.listw.addItem(it)
-        # подсветить активный
         for i in range(self.listw.count()):
             if self.listw.item(i).data(Qt.UserRole) == self.store.active:
                 self.listw.setCurrentRow(i)
@@ -229,9 +237,10 @@ class AccountsDialog(QDialog):
 # ---------------------------------------------------------------------------
 NAV_ITEMS = [
     ("home", "Главная", theme.ICON_HOME),
-    ("play", "Играть", theme.ICON_PLAY),
+    ("versions", "Версии", theme.ICON_VERSIONS),
+    ("settings", "Настройки", theme.ICON_SLIDERS),
+    ("console", "Консоль", theme.ICON_TERMINAL),
     ("skins", "Скины", theme.ICON_SKIN),
-    ("settings", "Настройки", theme.ICON_GEAR_SM),
 ]
 
 
@@ -242,7 +251,7 @@ class Sidebar(QWidget):
     def __init__(self, k=1.0, parent=None):
         super().__init__(parent)
         self.k = float(k)
-        self.setFixedSize(round(280 * k), round(1036 * k))
+        self.setFixedSize(round(232 * k), round(900 * k))
         self._account = {"name": "Exeyta"}
         self._nav = {}
         self._build()
@@ -250,50 +259,48 @@ class Sidebar(QWidget):
     def _build(self):
         k = self.k
         from .controls import NavButton
-        ys = {"home": 126, "play": 184, "skins": 242, "settings": 300}
+        ys = {"home": 82, "versions": 132, "settings": 182,
+              "console": 232, "skins": 282}
         for key, label, icon in NAV_ITEMS:
             btn = NavButton(label, icon, k=k, parent=self)
-            btn.move(round(24 * k), round(ys[key] * k))
+            btn.move(round(16 * k), round(ys[key] * k))
             btn.clicked.connect(lambda kk=key: self.nav_clicked.emit(kk))
             self._nav[key] = btn
 
-        self.tg = TelegramButton(k=k, parent=self)
-        self.tg.move(round(24 * k), round(408 * k))
+        self.tg = _LinkRow("Telegram-сообщество", theme.ICON_TELEGRAM,
+                           k=k, parent=self)
+        self.tg.move(round(20 * k), round(392 * k))
         self.tg.clicked.connect(self._open_telegram)
 
-        # «Скачать текстурпак» — ссылка на каталог ресурс-паков
-        pack_icon = theme.icon_pixmap(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-            'width="24" height="24"><path d="%s" fill="none" stroke="@COLOR@" '
-            'stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"'
-            '/></svg>' % theme.ICON_PACK, round(20 * k), "#ffe7b0")
-        self.btn_packs = FxButton(
-            "Скачать текстурпак", kind="chip",
-            w_=round(232 * k), h_=round(50 * k), radius=16,
-            px=14, svg_w=700, icon=pack_icon, gap=10,
-            tooltip=theme.RESOURCE_PACKS_URL, parent=self)
-        self.btn_packs.move(round(24 * k), round(470 * k))
+        self.btn_packs = _LinkRow("Скачать текстурпак", theme.ICON_PACK,
+                                  k=k, parent=self)
+        self.btn_packs.move(round(20 * k), round(428 * k))
         self.btn_packs.clicked.connect(self._open_resource_packs)
 
+        # карточка аккаунта
+        self._acct_rect = QRectF(16 * k, 800 * k, 200 * k, 62 * k)
+        self._acct_zone = _LinkRow("", None, k=k, parent=self)
+        self._acct_zone.setFixedSize(round(200 * k), round(62 * k))
+        self._acct_zone.move(round(16 * k), round(800 * k))
+        self._acct_zone.clicked.connect(self.gear_clicked.emit)
+
         gear_svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-                    'width="24" height="24"><path d="%s" fill="#ffe7b0"/></svg>'
+                    'width="24" height="24"><path d="%s" fill="#c9a45c"/></svg>'
                     % theme.ICON_GEAR)
-        self.gear = FxButton("", kind="chip", w_=round(36 * k),
-                             h_=round(36 * k), radius=12,
-                             icon=theme.icon_pixmap(gear_svg, round(24 * k)),
+        self.gear = FxButton("", kind="plain", w_=round(28 * k),
+                             h_=round(28 * k), radius=8,
+                             icon=theme.icon_pixmap(gear_svg, round(16 * k)),
                              tooltip="Управление offline-аккаунтами",
                              parent=self)
-        self.gear.move(round(208 * k), round(962 * k))
+        self.gear.move(round(178 * k), round(817 * k))
         self.gear.clicked.connect(self.gear_clicked.emit)
 
     def _open_telegram(self):
         from PyQt5.QtGui import QDesktopServices
         from PyQt5.QtCore import QUrl
-        url = self.tg._url or theme.TELEGRAM_URL
-        QDesktopServices.openUrl(QUrl(url))
+        QDesktopServices.openUrl(QUrl(theme.TELEGRAM_URL))
 
     def _open_resource_packs(self):
-        """Открывает каталог текстурпаков в браузере пользователя."""
         from PyQt5.QtGui import QDesktopServices
         from PyQt5.QtCore import QUrl
         QDesktopServices.openUrl(QUrl(theme.RESOURCE_PACKS_URL))
@@ -314,99 +321,75 @@ class Sidebar(QWidget):
         k = self.k
         w_, h_ = self.width(), self.height()
 
-        # контур сайдбара: скруглены ЛЕВЫЕ углы (28), правый край прямой
-        r28 = 28 * k
-        contour = QPainterPath()
-        contour.moveTo(w_, 0)
-        contour.lineTo(r28, 0)
-        contour.arcTo(0, 0, 2 * r28, 2 * r28, 270, -90)
-        contour.lineTo(0, h_ - r28)
-        contour.arcTo(0, h_ - 2 * r28, 2 * r28, 2 * r28, 180, -90)
-        contour.lineTo(w_, h_)
-        contour.closeSubpath()
-        p.setClipPath(contour)
+        p.fillRect(self.rect(), QColor("#101115"))
+        # тонкая полоса-градиент сверху (очень сдержанная)
+        top = QRectF(0, 0, w_, 2 * k)
+        g = QLinearGradient(top.left(), 0, top.right(), 0)
+        g.setColorAt(0.0, QColor(201, 164, 92, 170))
+        g.setColorAt(1.0, QColor(201, 164, 92, 0))
+        p.fillRect(top, g)
 
-        # фон: side-градиент
-        g = QLinearGradient(0, 0, w_, h_)
-        g.setColorAt(0.0, QColor("#24122c"))
-        g.setColorAt(1.0, QColor("#100810"))
-        p.fillRect(self.rect(), g)
-
-        # верхняя полоска 3px sunH (продолжение полоски окна)
-        strip = QRectF(0, 0, w_, 3 * k)
-        sg = QLinearGradient(strip.left(), strip.top(),
-                             strip.right(), strip.top())
-        sg.setColorAt(0.0, QColor("#ffb703"))
-        sg.setColorAt(1.0, QColor("#ff4d6d"))
-        p.fillRect(strip, sg)
-
-        # разделитель справа (#ffffff 6%)
-        p.setPen(QPen(QColor(255, 255, 255, 16)))
+        # разделитель справа
+        p.setPen(QPen(QColor("#232429")))
         p.drawLine(w_ - 1, 0, w_ - 1, h_)
 
-        # логотип 42x42 r13 (солнечный градиент) + E
-        lr = QRectF(30 * k, 36 * k, 42 * k, 42 * k)
-        sg = QLinearGradient(lr.topLeft(), lr.bottomRight())
-        sg.setColorAt(0.0, QColor("#ffe08a"))
-        sg.setColorAt(0.42, QColor("#ff8a3d"))
-        sg.setColorAt(1.0, QColor("#ff4d88"))
+        # логотип + название
+        lr = QRectF(20 * k, 26 * k, 24 * k, 24 * k)
+        lg = QLinearGradient(lr.topLeft(), lr.bottomRight())
+        lg.setColorAt(0.0, QColor("#ddc27e"))
+        lg.setColorAt(1.0, QColor("#a8843c"))
         p.setPen(Qt.NoPen)
-        p.setBrush(sg)
-        p.drawRoundedRect(lr, 13 * k, 13 * k)
-        ef = theme.font(22 * k, w(800))
-        p.setFont(ef)
-        p.setPen(QColor("#1a0a10"))
+        p.setBrush(lg)
+        p.drawRoundedRect(lr, 7 * k, 7 * k)
+        p.setFont(theme.font(13 * k, w(800)))
+        p.setPen(QColor("#1c1609"))
         p.drawText(lr, Qt.AlignCenter, "E")
 
-        # EXEYTA — градиентный текст через путь (addText -> fill градиентом)
-        xf = theme.font(26 * k, w(800))
-        x = 86 * k
-        base_y = 56 * k
-        tpath = QPainterPath()
-        tpath.addText(x, base_y, xf, "EXEYTA")
-        br = tpath.boundingRect()
-        tg = QLinearGradient(br.topLeft(), br.bottomRight())
-        tg.setColorAt(0.0, QColor("#ffe08a"))
-        tg.setColorAt(0.5, QColor("#ff8a3d"))
-        tg.setColorAt(1.0, QColor("#ff4d88"))
-        p.setPen(Qt.NoPen)
-        p.setBrush(tg)
-        p.drawPath(tpath)
+        f = theme.font(13.5 * k, w(700))
+        draw_base(p, 54 * k, 43 * k, "Exeyta Launcher", f, "#e6e8ec",
+                  wide=round(160 * k))
 
-        lf = theme.font(10 * k, w(500))
-        lf.setLetterSpacing(QFont.AbsoluteSpacing, 3.2 * k)
-        draw_base(p, x, 76 * k, "LAUNCHER", lf, "#c9a8b8", wide=round(170 * k))
+        # разделители секций
+        p.setPen(QPen(QColor("#1d1e23")))
+        p.drawLine(round(16 * k), round(344 * k), round(216 * k),
+                   round(344 * k))
+        p.drawLine(round(16 * k), round(478 * k), round(216 * k),
+                   round(478 * k))
 
-        # СООБЩЕСТВО
-        cf = theme.font(11 * k, w(500))
-        cf.setLetterSpacing(QFont.AbsoluteSpacing, 1.8 * k)
-        draw_base(p, 32 * k, 390 * k, "СООБЩЕСТВО", cf, "#8d7084",
-                  wide=round(200 * k))
+        cf = theme.font(10 * k, w(700))
+        cf.setLetterSpacing(QFont.AbsoluteSpacing, 1.4 * k)
+        draw_base(p, 22 * k, 370 * k, "СООБЩЕСТВО", cf, "#62666e",
+                  wide=round(180 * k))
 
-        # карточка аккаунта 232x70 r16
-        ar = QRectF(24 * k, 946 * k, 232 * k, 70 * k)
-        p.setBrush(QColor("#1c1024"))
-        p.setPen(QPen(QColor("#14ffffff")))
-        p.drawRoundedRect(ar, 16 * k, 16 * k)
+        # карточка аккаунта
+        ar = self._acct_rect
+        p.setBrush(QColor("#1a1b20"))
+        p.setPen(QPen(QColor("#2a2b31")))
+        p.drawRoundedRect(ar, 10 * k, 10 * k)
 
-        # аватар: кольцо sun + лицо + волосы
-        cx, cy = 58 * k, 981 * k
-        ring = QLinearGradient(cx - 20 * k, cy - 20 * k, cx + 20 * k, cy + 20 * k)
-        ring.setColorAt(0.0, QColor("#ffe08a"))
-        ring.setColorAt(0.42, QColor("#ff8a3d"))
-        ring.setColorAt(1.0, QColor("#ff4d88"))
-        p.setBrush(QColor("#e8c49a"))
-        p.setPen(QPen(ring, 2 * k))
-        p.drawEllipse(QPointF(cx, cy), 20 * k, 20 * k)
+        # аватар
+        cx, cy = 40 * k, 831 * k
+        ring = QLinearGradient(cx - 16 * k, cy - 16 * k,
+                               cx + 16 * k, cy + 16 * k)
+        ring.setColorAt(0.0, QColor("#ddc27e"))
+        ring.setColorAt(1.0, QColor("#a8843c"))
+        p.setBrush(QColor("#d9c9ae"))
+        p.setPen(QPen(ring, 1.6 * k))
+        p.drawEllipse(QPointF(cx, cy), 16 * k, 16 * k)
         p.setPen(Qt.NoPen)
         p.setBrush(QColor("#4a3728"))
-        p.drawRoundedRect(QRectF(cx - 10 * k, cy - 9 * k, 20 * k, 7 * k),
-                          2 * k, 2 * k)
+        p.drawRoundedRect(QRectF(cx - 8 * k, cy - 7 * k, 16 * k, 5.5 * k),
+                          1.6 * k, 1.6 * k)
 
-        # ник + статус Premium Offline
         name = (self._account or {}).get("name") or "Exeyta"
-        draw_base(p, 86 * k, 976 * k, name, theme.font(14 * k, w(700)),
-                  "#fff8f2", wide=round(120 * k))
-        draw_base(p, 86 * k, 996 * k, "Premium Offline",
-                  theme.font(11 * k, w(500)), "#ffb703", wide=round(130 * k))
+        draw_base(p, 64 * k, 827 * k, name, theme.font(13 * k, w(700)),
+                  "#eceef2", wide=round(110 * k))
+        draw_base(p, 64 * k, 845 * k, "Premium Offline",
+                  theme.font(10.5 * k, w(500)), "#c9a45c",
+                  wide=round(120 * k))
+
+        # версия лаунчера
+        draw_base(p, 20 * k, 886 * k, theme.LAUNCHER_VERSION,
+                  theme.font(10.5 * k, w(500)), "#5f636b",
+                  wide=round(100 * k))
         p.end()

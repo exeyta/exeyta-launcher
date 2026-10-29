@@ -11,10 +11,11 @@ https://github.com/exeyta/exeyta-launcher/releases/latest/download/ExeytaSetup.e
 Офлайн-лаунчер Minecraft и его установщик для Windows.
 Стек: **Python 3.11+ / PyQt5** (лаунчер и установщик). Интерфейс — русский.
 
-Визуальный источник правды лаунчера — `assets/launcher-ui.svg`
-(viewBox `28 22 1864 1036`): цвета, градиенты, радиусы, отступы и
-иерархия блоков воспроизведены 1:1 нативными Qt-виджетами + QSS
-(`exeyta/ui/styles.qss`), общий модуль темы — `exeyta_shared/theme.py`.
+Визуальный стиль лаунчера — спокойный тёмно-графитовый интерфейс
+с приглушённым золотистым акцентом. Вёрстка собрана нативными
+Qt-виджетами и QSS (`exeyta/ui/styles.qss`), общие цвета и помощники
+рисования — в `exeyta_shared/theme.py`. Превью интерфейса:
+`assets/launcher-preview.png`.
 
 ---
 
@@ -83,6 +84,8 @@ build_installer.bat     :: dist/ExeytaSetup.exe (onefile)
   палитра 12 цветов, UV-холст 512×448 с чекер-фоном и сеткой,
   3D-превью 336×448 с вращением мышью (рендер по требованию, ≤30 fps),
   Сохранить / Импорт PNG / Экспорт / В игру.
+* **Консоль**: живой журнал запуска и ошибок, очистка и быстрый переход
+  к папке логов `%APPDATA%/Exeyta/logs`.
 * **Настройки**: Память (4096–8192 MB) + автозапуск, Java (путь портативной
   JVM + JVM-аргументы), Папка игры (+ «Обзор»), Язык.
 * **«Моды» / «Из коробки»** — в UI нет Fabric/Quilt (по требованию).
@@ -116,18 +119,19 @@ exeyta-launcher/
 ├── build_installer.bat
 ├── README.md
 ├── assets/
-│   ├── launcher-ui.svg         # визуальный источник правды
+│   ├── launcher-preview.png   # превью интерфейса
 │   ├── icon.ico
 │   └── icons/
 ├── exeyta/
 │   ├── app.py
 │   ├── ui/
-│   │   ├── main_window.py      # окно 1864×1036, вкладки-разделы + анимации
-│   │   ├── home_panel.py       # раздел «Главная» (стартовый)
-│   │   ├── sidebar.py          # логотип, навигация, Telegram, аккаунт
-│   │   ├── launch_panel.py     # «Запуск» 430×648
-│   │   ├── skin_editor.py      # «Редактор скина» 1090×648
-│   │   ├── settings_panel.py   # «Настройки» 1536×320
+│   │   ├── main_window.py      # окно 1440×900, сайдбар и строка состояния
+│   │   ├── home_panel.py       # «Главная»: версия, состояние, параметры
+│   │   ├── sidebar.py          # навигация, аккаунт, ссылки
+│   │   ├── launch_panel.py     # «Версии»: каталог и выбор версии
+│   │   ├── console_panel.py    # «Консоль»: журнал запуска
+│   │   ├── skin_editor.py      # «Скины»: редактор 1090×648
+│   │   ├── settings_panel.py   # «Настройки»: память, Java, папка, язык
 │   │   ├── install_wizard.py   # мастер MC+Java
 │   │   ├── controls.py         # кнопки/слайдеры/чипы (ручная отрисовка)
 │   │   └── styles.qss
@@ -200,9 +204,9 @@ dist/
 
 ## Как это работает
 
-1. Выбираете версию в плашке «Запуск» → резолвер версии
+1. Выбираете версию в разделе «Версии» → резолвер версии
    (`java_resolver.major_for`) определяет major Java по таблице.
-2. «ИГРАТЬ» проверяет готовность (клиент + runtime). Если чего-то нет —
+2. «Играть» проверяет готовность (клиент + runtime). Если чего-то нет —
    открывается мастер «Установка Minecraft и Java»: version.json, client.jar,
    библиотеки, нативные, ресурсы → затем portable JRE (если нужна).
 3. `launch_builder` пишет `scripts/launch_<version>_<nick>.bat`
@@ -231,7 +235,7 @@ python build\publish_release.py 1.0.0-alpha.2 "что нового"
 
 * Windows 10/11 x64; Python 3.11+ (для `python launcher.py`).
 * Для сборки: `pip install -r requirements-build.txt` (PyInstaller 6).
-* Высокое DPI: `AA_EnableHighDpiScaling`; окно 1864×1036 масштабируется
+* Высокое DPI: `AA_EnableHighDpiScaling`; окно 1440×900 масштабируется
   с сохранением пропорций, если экран меньше.
 
 ## Лицензия и права

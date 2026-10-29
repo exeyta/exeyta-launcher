@@ -10,7 +10,7 @@ class ShortcutsPage(PageWidget):
         super().__init__(parent)
         make_heading("Ярлыки", self, y=0, px=24)
         tip = QLabel("Где создать ярлык запуска Exeyta?", self)
-        tip.setStyleSheet("color: #b9a3b4; font-size: 13px; "
+        tip.setStyleSheet("color: #8b8f98; font-size: 13px; "
                           "background: transparent;")
         tip.move(0, 38)
 
@@ -27,7 +27,7 @@ class ShortcutsPage(PageWidget):
             "Игровые данные (%APPDATA%\\Exeyta: аккаунты, логи, кэш) "
             "хранятся отдельно и не удаляются вместе с программой.", self)
         note.setWordWrap(True)
-        note.setStyleSheet("color: #8d7084; font-size: 12px; "
+        note.setStyleSheet("color: #62666e; font-size: 12px; "
                            "background: transparent;")
         note.setGeometry(0, 170, 696, 60)
 
