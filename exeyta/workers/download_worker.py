@@ -11,7 +11,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from ..core import config as cfg
 from ..core.java_resolver import major_for
 from ..core.minecraft_installer import (Cancelled, cached_version_ids,
-                                        install_version, is_client_installed)
+                                        install_version)
 from ..core.portable_java import install_java, is_installed
 
 
@@ -45,15 +45,16 @@ class InstallWorker(QThread):
         stage = "client"
         try:
             # ---- 1) Minecraft (клиент, библиотеки, ресурсы) --------------
+            # install_version() идемпотентна: существующие файлы с верным
+            # размером пропускаются, отсутствующие/битые — докачиваются.
+            # Поэтому запускаем её всегда, а не только для новой версии:
+            # так чинятся установки после старых багов с индексом ресурсов.
             self.stage_changed.emit("client")
-            if self.force or not is_client_installed(self.version_id, self.game_dir):
-                install_version(self.version_id,
-                                progress=self._progress,
-                                cancel=self._is_cancelled,
-                                game_dir=self.game_dir)
-            else:
-                self._progress("client", 100, 100, "Клиент %s уже установлен"
-                               % self.version_id)
+            self._progress("client", 0, 1, "Проверка файлов клиента…")
+            install_version(self.version_id,
+                            progress=self._progress,
+                            cancel=self._is_cancelled,
+                            game_dir=self.game_dir)
             if self._cancel:
                 self.cancelled.emit()
                 return

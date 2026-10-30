@@ -260,6 +260,7 @@ class MainWindow(QWidget):
         self._pending_play = False
         self._cancel_requested = False
         self._game_error = False
+        self._assets_ok_for = None
         self._drag_pos = None
         self.skin_editor = None
         self._active_tab = "home"
@@ -423,6 +424,7 @@ class MainWindow(QWidget):
 
     def _version_chosen(self, vid):
         self.cfg.last_version = vid
+        self._assets_ok_for = None
         self._set_status("выбрана версия %s" % vid, "#c9a45c")
         self._refresh_state()
 
@@ -443,6 +445,7 @@ class MainWindow(QWidget):
 
     def _folder_chosen(self, path):
         self.cfg.game_dir = path
+        self._assets_ok_for = None
         self._refresh_state()
 
     def _refresh_state(self):
@@ -526,6 +529,7 @@ class MainWindow(QWidget):
         ok = self._install_ok
         self._install_ok = False
         self._wizard = None
+        self._assets_ok_for = None
         self._set_busy(False)
         self._refresh_state()
         if ok and self._pending_play:
@@ -540,6 +544,21 @@ class MainWindow(QWidget):
             self._pending_play = True
             self._open_install(self.cfg.last_version)
             return
+        version = self.cfg.last_version
+        # Проверяем целостность ресурсов именно этой версии: если индекс
+        # относится к другой версии или файлы недокачаны — чиним установку
+        # до запуска, иначе Minecraft падает на NoSuchFileException.
+        if self._assets_ok_for != version:
+            from ..core.minecraft_installer import missing_assets
+            missing, total = missing_assets(version, self.cfg.game_dir)
+            if missing:
+                self._pending_play = True
+                self._set_status(
+                    "не хватает %d из %d ресурсов — докачка…"
+                    % (missing, total), "#c9a45c")
+                self._open_install(version)
+                return
+            self._assets_ok_for = version
         self._do_play()
 
     def _do_play(self):

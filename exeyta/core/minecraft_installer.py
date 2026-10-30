@@ -4,9 +4,11 @@
 Всё в отдельном QThread (см. workers/download_worker), с отменой и retry.
 Клиент -> <game_dir>/versions/<id>/, ресурсы -> <game_dir>/assets/.
 """
+import hashlib
 import json
 import re
 import shutil
+import time
 import zipfile
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -39,32 +41,83 @@ def http_json(url: str, timeout=30):
     return json.loads(http_get(url, timeout).decode("utf-8"))
 
 
-def download_file(url: str, dest: Path, cancel=None, progress=None):
-    """Скачивает в dest атомарно (.part -> dest). Пропускает существующие."""
+def _sha1_file(path: Path):
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def download_file(url: str, dest: Path, cancel=None, progress=None,
+                  size=None, sha1=None, retries=3):
+    """Скачивает в dest атомарно (.part -> dest).
+
+    * существующий файл пропускается только при совпадении размера
+      (и SHA1, если он известен);
+    * ошибки сети/сервера повторяются до retries раз;
+    * после загрузки проверяются размер и SHA1.
+    """
     dest = Path(dest)
+    expected = int(size) if size is not None else None
     if dest.exists() and dest.stat().st_size > 0:
-        if progress:
-            progress(dest.stat().st_size, dest.stat().st_size)
-        return dest
+        good = expected is None or dest.stat().st_size == expected
+        if good and sha1:
+            try:
+                good = _sha1_file(dest).lower() == str(sha1).lower()
+            except Exception:
+                good = False
+        if good:
+            if progress:
+                progress(dest.stat().st_size, dest.stat().st_size)
+            return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     req = Request(url, headers={"User-Agent": UA})
     tmp = dest.with_suffix(dest.suffix + ".part")
-    with urlopen(req, timeout=60) as resp:
-        total = int(resp.headers.get("Content-Length") or 0)
-        done = 0
-        with open(tmp, "wb") as f:
-            while True:
-                if cancel and cancel():
-                    raise Cancelled()
-                chunk = resp.read(256 * 1024)
-                if not chunk:
-                    break
-                f.write(chunk)
-                done += len(chunk)
-                if progress:
-                    progress(done, total)
-    tmp.replace(dest)
-    return dest
+    last = None
+    for attempt in range(max(1, int(retries))):
+        if cancel and cancel():
+            raise Cancelled()
+        try:
+            with urlopen(req, timeout=60) as resp:
+                total = int(resp.headers.get("Content-Length") or 0)
+                done = 0
+                with open(tmp, "wb") as f:
+                    while True:
+                        if cancel and cancel():
+                            raise Cancelled()
+                        chunk = resp.read(256 * 1024)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        done += len(chunk)
+                        if progress:
+                            progress(done, total)
+            if expected is not None and tmp.stat().st_size != expected:
+                raise IOError("неверный размер: %d вместо %d"
+                              % (tmp.stat().st_size, expected))
+            if sha1 and _sha1_file(tmp).lower() != str(sha1).lower():
+                raise IOError("неверная контрольная сумма")
+            tmp.replace(dest)
+            return dest
+        except Cancelled:
+            try:
+                tmp.unlink()
+            except Exception:
+                pass
+            raise
+        except Exception as e:
+            last = e
+            try:
+                tmp.unlink()
+            except Exception:
+                pass
+            code = getattr(e, "code", None)
+            if code in (401, 403, 404):
+                break
+            if attempt + 1 < max(1, int(retries)):
+                time.sleep(0.8 * (attempt + 1))
+    raise last
 
 
 # ---------------------------------------------------------------------------
@@ -250,12 +303,12 @@ def _natives_key(lib: dict) -> str:
 
 
 def collect_tasks(meta: dict, p: dict):
-    """Список задач скачивания клиента: [(kind, dest, url)]."""
+    """Список задач скачивания клиента: [(kind, dest, url, size|None)]."""
     tasks = []
     # 1) client jar
     client = (meta.get("downloads") or {}).get("client") or {}
     if client.get("url"):
-        tasks.append(("jar", p["jar"], client["url"]))
+        tasks.append(("jar", p["jar"], client["url"], client.get("size")))
 
     # 2) библиотеки + нативные классификаторы
     for lib in meta.get("libraries", []):
@@ -263,41 +316,93 @@ def collect_tasks(meta: dict, p: dict):
             continue
         _path, url, _size = _lib_artifact_url(lib)
         if url:
-            tasks.append(("lib", p["libraries"] / _path, url))
+            tasks.append(("lib", p["libraries"] / _path, url, _size or None))
         key = _natives_key(lib)
         if key:
             cls = ((lib.get("downloads") or {}).get("classifiers") or {}).get(key)
             if cls and cls.get("url"):
-                tasks.append(("natives", p["libraries"] / cls["path"], cls["url"]))
+                tasks.append(("natives", p["libraries"] / cls["path"],
+                              cls["url"], cls.get("size")))
 
     # 3) asset index
     aidx = meta.get("assetIndex") or {}
-    idx_id = meta.get("assets") or "legacy"
+    idx_id = str(aidx.get("id") or meta.get("assets") or "legacy")
     if aidx.get("url"):
         tasks.append(("asset_index", p["assets"] / "indexes" / (idx_id + ".json"),
-                      aidx["url"]))
+                      aidx["url"], aidx.get("size")))
 
     # 4) logging config
     log = ((meta.get("logging") or {}).get("client") or {}).get("file") or {}
     if log.get("id") and log.get("url"):
-        tasks.append(("logging", p["assets"] / "log_configs" / log["id"], log["url"]))
+        tasks.append(("logging", p["assets"] / "log_configs" / log["id"],
+                      log["url"], log.get("size")))
     return tasks
 
 
-def _asset_tasks(p: dict):
-    """Объекты ресурсов по скачанному индексу."""
-    idx_files = list((p["assets"] / "indexes").glob("*.json"))
-    if not idx_files:
+def _asset_index_path(p: dict, meta: dict) -> Path:
+    """Путь к индексу ресурсов именно этой версии.
+
+    Раньше здесь брался первый попавшийся *.json из assets/indexes — при
+    установленных старых версиях это был чужой индекс, и игра падала на
+    отсутствующих объектах. Теперь индекс строго из version.json.
+    """
+    aidx = meta.get("assetIndex") or {}
+    idx_id = str(aidx.get("id") or meta.get("assets") or "legacy")
+    return p["assets"] / "indexes" / (idx_id + ".json")
+
+
+def _asset_tasks(p: dict, meta: dict):
+    """Объекты ресурсов по индексу конкретной версии: (kind, dest, url, size)."""
+    idx_path = _asset_index_path(p, meta)
+    if not idx_path.exists():
         return []
-    idx = json.loads(idx_files[0].read_text(encoding="utf-8"))
+    try:
+        idx = json.loads(idx_path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
     tasks = []
     for _name, obj in (idx.get("objects") or {}).items():
         h = obj.get("hash", "")
         if len(h) < 2:
             continue
         dest = p["assets"] / "objects" / h[:2] / h
-        tasks.append(("asset", dest, "%s/%s/%s" % (ASSET_BASE, h[:2], h)))
+        tasks.append(("asset", dest, "%s/%s/%s" % (ASSET_BASE, h[:2], h),
+                      obj.get("size"), h))
     return tasks
+
+
+def missing_assets(version_id: str, game_dir: Path = None):
+    """Сколько объектов ресурсов отсутствует/недокачано.
+
+    Проверяет только индекс этой версии и размеры файлов — без хеширования
+    всех 500 МБ при каждом запуске. Возвращает (missing, total).
+    """
+    p = paths_for(version_id, game_dir)
+    try:
+        meta = load_meta(version_id, game_dir)
+    except Exception:
+        return 0, 0
+    idx_path = _asset_index_path(p, meta)
+    if not idx_path.exists():
+        return 1, 1
+    try:
+        idx = json.loads(idx_path.read_text(encoding="utf-8"))
+    except Exception:
+        return 1, 1
+    objects = list((idx.get("objects") or {}).values())
+    missing = 0
+    for obj in objects:
+        h = str(obj.get("hash") or "")
+        if len(h) < 2:
+            continue
+        dest = p["assets"] / "objects" / h[:2] / h
+        try:
+            if not dest.exists() or dest.stat().st_size != int(obj.get("size") or 0):
+                missing += 1
+        except Exception:
+            missing += 1
+    return missing, len(objects)
+
 
 
 def _unzip_flat(jar_path: Path, dest: Path):
@@ -389,7 +494,9 @@ def install_version(version_id: str, progress=None, cancel=None,
     done = 0
     progress("client", 0, max(total, 1), "Подготовка: %d файлов" % total)
 
-    for kind, dest, url in tasks:
+    for task in tasks:
+        kind, dest, url = task[0], task[1], task[2]
+        fsize = task[3] if len(task) > 3 else None
         if cancel():
             raise Cancelled()
         label = {
@@ -400,7 +507,7 @@ def install_version(version_id: str, progress=None, cancel=None,
             "logging": "Логирование",
         }.get(kind, kind)
         try:
-            download_file(url, dest, cancel=cancel)
+            download_file(url, dest, cancel=cancel, size=fsize)
         except Cancelled:
             raise
         except Exception as e:
@@ -421,26 +528,44 @@ def install_version(version_id: str, progress=None, cancel=None,
         progress("client", done, total, "%s: %s" % (label, dest.name))
 
     # 3) ресурсы
-    atasks = _asset_tasks(p)
-    if atasks:
-        atotal = len(atasks)
-        adone = 0
-        progress("client", 0, atotal, "Ресурсы: %d файлов" % atotal)
-        errors = 0
-        for kind, dest, url in atasks:
-            if cancel():
-                raise Cancelled()
+    # индекс мог остаться битым от прерванной загрузки — перекачиваем его
+    idx_path = _asset_index_path(p, meta)
+    try:
+        json.loads(idx_path.read_text(encoding="utf-8"))
+    except Exception:
+        aidx = meta.get("assetIndex") or {}
+        if aidx.get("url"):
             try:
-                download_file(url, dest, cancel=cancel)
-            except Cancelled:
-                raise
+                idx_path.unlink()
             except Exception:
-                errors += 1
-            adone += 1
-            if adone % 5 == 0 or adone == atotal:
-                progress("client", adone, atotal, "Ресурсы: %d/%d" % (adone, atotal))
-        if errors and adone == errors:
-            raise RuntimeError("Не удалось скачать ресурсы (%d файлов)" % errors)
+                pass
+            download_file(aidx["url"], idx_path, cancel=cancel,
+                          size=aidx.get("size"), sha1=aidx.get("sha1"))
+    atasks = _asset_tasks(p, meta)
+    if not atasks:
+        raise RuntimeError(
+            "Не найден индекс ресурсов %s — переустановите версию"
+            % idx_path.name)
+    atotal = len(atasks)
+    adone = 0
+    progress("client", 0, atotal, "Ресурсы: %d файлов" % atotal)
+    errors = 0
+    for _kind, dest, url, asize, ahash in atasks:
+        if cancel():
+            raise Cancelled()
+        try:
+            download_file(url, dest, cancel=cancel, size=asize, sha1=ahash)
+        except Cancelled:
+            raise
+        except Exception:
+            errors += 1
+        adone += 1
+        if adone % 5 == 0 or adone == atotal:
+            progress("client", adone, atotal, "Ресурсы: %d/%d" % (adone, atotal))
+    if errors:
+        raise RuntimeError(
+            "Не удалось скачать ресурсы: %d из %d файлов. "
+            "Проверьте интернет и повторите установку." % (errors, atotal))
 
     # 4) нативные
     progress("client", total, total, "Распаковка нативных библиотек...")
