@@ -37,3 +37,6 @@ mods/*
 .vscode/
 .idea/
 Thumbs.db
+
+# --- Minecraft LCE Web: локальные ассеты (собираются из пака пользователя) ---
+minecraft-lce-web/js/pack.js

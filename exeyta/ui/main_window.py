@@ -21,6 +21,7 @@ from .console_panel import ConsolePanel
 from .controls import add_label, rounded_path
 from .home_panel import HomePanel
 from .launch_panel import LaunchPanel
+from .rust_panel import RustPanel
 from .settings_panel import SettingsPanel
 from .sidebar import AccountsDialog, Sidebar
 
@@ -35,6 +36,7 @@ PAGE_H = 648
 PAGE_META = {
     "home": ("Главная", "Выбранная версия и текущие параметры запуска"),
     "versions": ("Версии", "Каталог версий Minecraft и установка компонентов"),
+    "rust": ("Rust Edition", "Minecraft 26.3 на Rust — отдельный клиент Horizon"),
     "settings": ("Настройки", "Память, Java, папка игры и язык интерфейса"),
     "console": ("Консоль", "Журнал запуска и сообщения лаунчера"),
     "skins": ("Скины", "Редактор скина и предпросмотр в 3D"),
@@ -273,6 +275,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(0, self._build_skin_editor)
         QTimer.singleShot(10, self._refresh_state)
         QTimer.singleShot(60, self._load_versions)
+        QTimer.singleShot(120, self._refresh_rust)
         QTimer.singleShot(900, self._autostart)
 
     # ------------------------------------------------------------------ UI
@@ -280,6 +283,7 @@ class MainWindow(QWidget):
         return {
             "home": getattr(self, "home", None),
             "versions": getattr(self, "launch", None),
+            "rust": getattr(self, "rust", None),
             "settings": getattr(self, "settings", None),
             "console": getattr(self, "console", None),
             "skins": getattr(self, "skin_editor", None),
@@ -326,6 +330,14 @@ class MainWindow(QWidget):
             lambda mb: self.settings.set_memory_mb(mb))
         self.launch.hide()
 
+        self.rust = RustPanel(k=k, parent=self)
+        self.rust.move(round(PAGE_X * k), round(PAGE_Y * k))
+        self.rust.play_clicked.connect(self._rust_play)
+        self.rust.open_home_clicked.connect(self._open_rust_home)
+        self.rust.open_bat_clicked.connect(self._open_rust_bat)
+        self.rust.prepare_clicked.connect(self._rust_help)
+        self.rust.hide()
+
         self.settings = SettingsPanel(self.cfg, k=k, parent=self)
         self.settings.move(round(PAGE_X * k), round(PAGE_Y * k))
         self.settings.memory_changed.connect(self._memory_changed)
@@ -368,6 +380,8 @@ class MainWindow(QWidget):
         self.sidebar.set_active(key)
         if key == "skins" and self.skin_editor is None:
             self._build_skin_editor()
+        if key == "rust":
+            self._refresh_rust()
         if key == self._active_tab:
             return
         prev = self._section(self._active_tab)
@@ -407,11 +421,92 @@ class MainWindow(QWidget):
         self.statusbar.set_status(text, color)
         self.console.set_running(self.busy, text)
 
+    # ---------------------------------------------------------- Rust Edition
+    def _refresh_rust(self):
+        from ..core import horizon
+        info = horizon.info()
+        acc = self.accounts.current() or {}
+        nick = acc.get("name") or "Player"
+        skin = horizon.skin_path(acc)
+        model = horizon.skin_model(acc)
+        info["bat_path"] = str(horizon.launch_bat_path(nick))
+        self._rust_info = info
+        self.rust.set_info(info)
+        self.rust.set_account(nick, skin, model)
+        return info
+
+    def _rust_play(self):
+        if self.busy:
+            return
+        from ..core import horizon
+        info = self._refresh_rust()
+        if not info.get("ok"):
+            self._set_status(info.get("error") or "Rust Edition не готов",
+                             "#d97a7a")
+            return
+        acc = self.accounts.current() or {}
+        nick = acc.get("name") or "Player"
+        skin = horizon.skin_path(acc)
+        cape = horizon.cape_path(acc)
+        model = horizon.skin_model(acc)
+        try:
+            bat = horizon.write_launch_bat(nick, skin, cape, model,
+                                           info_data=info)
+        except Exception as e:
+            self._set_status("Rust Edition: %s" % str(e)[:70], "#d97a7a")
+            return
+        self._rust_info = info
+        self.rust.set_bat_path(bat)
+        self._set_busy(True)
+        self._cancel_requested = False
+        self._game_error = False
+        self.console.append_log(
+            "=== Запуск Minecraft 26.3 Rust Edition (%s) ===" % info["tag"])
+        self.console.append_log("Батник: %s" % bat)
+        self.console.append_log("Инстанс: %s" % info["home"])
+        self.console.append_log("Профиль: %s · скин: %s"
+                                % (nick, skin or "стандартный"))
+        self._set_status("запуск Rust Edition…", "#7fbf8f")
+        from ..core.game_launcher import GameWorker
+        worker = GameWorker(bat, cwd=cfgmod.root_dir(), parent=self)
+        worker.log_line.connect(self._game_log)
+        worker.game_finished.connect(self._game_finished)
+        worker.game_failed.connect(self._game_failed)
+        self._game = worker
+        worker.start()
+
+    def _open_rust_home(self):
+        from PyQt5.QtCore import QUrl
+        from PyQt5.QtGui import QDesktopServices
+        info = self._rust_info or {}
+        path = info.get("home") or str(cfgmod.root_dir())
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+
+    def _open_rust_bat(self):
+        from PyQt5.QtCore import QUrl
+        from PyQt5.QtGui import QDesktopServices
+        from ..core import horizon
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(horizon.rust_dir())))
+
+    def _rust_help(self):
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(
+            self, "Rust Edition",
+            "Rust Edition запускает уже установленный Horizon "
+            "(Minecraft 26.3 на Rust).\n\n"
+            "1. Установите и запустите Horizon Offline Launcher.\n"
+            "2. Нажмите Prepare для Minecraft 26.3.\n"
+            "3. Вернитесь в Exeyta и нажмите «Играть».\n\n"
+            "Ник и скин берутся из активного offline-аккаунта Exeyta.\n"
+            "Моды Java Edition к Rust Edition не подходят — у Horizon "
+            "свои .hmod.")
+
     def _set_busy(self, flag, stoppable=True):
         self.busy = bool(flag)
         self._stoppable = bool(flag) and bool(stoppable)
         self.launch.set_busy(flag)
         self.home.set_busy(flag)
+        self.rust.set_busy(flag)
         self.statusbar.set_stoppable(self._stoppable)
 
     def _accounts(self):
@@ -419,6 +514,7 @@ class MainWindow(QWidget):
         dlg.exec_()
         self.sidebar.set_account(self.accounts.current())
         self._refresh_state()
+        self._refresh_rust()
         if self.skin_editor is not None:
             self.skin_editor.load_account_skin()
 
@@ -653,6 +749,7 @@ class MainWindow(QWidget):
             self._set_status("игра остановлена", "#c9a45c")
         self.console.set_running(False)
         self._refresh_state()
+        self._refresh_rust()
         if was_error:
             self._set_status("игра завершилась с ошибкой — см. консоль",
                              "#d97a7a")

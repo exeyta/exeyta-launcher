@@ -87,6 +87,11 @@ build_installer.bat     :: dist/ExeytaSetup.exe (onefile)
 * **Проверка ресурсов**: перед запуском лаунчер сверяет индекс ресурсов
   именно выбранной версии и докачивает отсутствующие файлы, чтобы игра
   не падала на `NoSuchFileException`.
+* **Rust Edition (Horizon)**: отдельный раздел для уже установленной
+  сборки Minecraft 26.3 на Rust (по умолчанию `v0.2.97.1`). Запускает
+  `horizon-client.exe` с инстансом `df`, подставляет ник и скин активного
+  offline-аккаунта и создаёт отдельный `.bat` в
+  `%APPDATA%/Exeyta/rust-edition/`. Java-моды к Rust Edition не применяются.
 * **Консоль**: живой журнал запуска и ошибок, очистка и быстрый переход
   к папке логов `%APPDATA%/Exeyta/logs`.
 * **Настройки**: Память (4096–8192 MB) + автозапуск, Java (путь портативной
@@ -133,6 +138,7 @@ exeyta-launcher/
 │   │   ├── sidebar.py          # навигация, аккаунт, ссылки
 │   │   ├── launch_panel.py     # «Версии»: каталог и выбор версии
 │   │   ├── console_panel.py    # «Консоль»: журнал запуска
+│   │   ├── rust_panel.py       # «Rust Edition»: Minecraft 26.3 на Rust
 │   │   ├── skin_editor.py      # «Скины»: редактор 1090×648
 │   │   ├── settings_panel.py   # «Настройки»: память, Java, папка, язык
 │   │   ├── install_wizard.py   # мастер MC+Java
@@ -140,6 +146,7 @@ exeyta-launcher/
 │   │   └── styles.qss
 │   ├── core/
 │   │   ├── accounts.py         # %APPDATA%/Exeyta/accounts.json
+│   │   ├── horizon.py          # Rust Edition: Horizon, ник, скин, .bat
 │   │   ├── java_resolver.py    # таблица MC -> major Java
 │   │   ├── portable_java.py    # runtime/jre8|17|21|25, .exeyta_ok, java -version
 │   │   ├── minecraft_installer.py

@@ -238,6 +238,7 @@ class AccountsDialog(QDialog):
 NAV_ITEMS = [
     ("home", "Главная", theme.ICON_HOME),
     ("versions", "Версии", theme.ICON_VERSIONS),
+    ("rust", "Rust Edition", theme.ICON_RUST),
     ("settings", "Настройки", theme.ICON_SLIDERS),
     ("console", "Консоль", theme.ICON_TERMINAL),
     ("skins", "Скины", theme.ICON_SKIN),
@@ -259,8 +260,8 @@ class Sidebar(QWidget):
     def _build(self):
         k = self.k
         from .controls import NavButton
-        ys = {"home": 82, "versions": 132, "settings": 182,
-              "console": 232, "skins": 282}
+        ys = {"home": 78, "versions": 124, "rust": 170,
+              "settings": 216, "console": 262, "skins": 308}
         for key, label, icon in NAV_ITEMS:
             btn = NavButton(label, icon, k=k, parent=self)
             btn.move(round(16 * k), round(ys[key] * k))
@@ -269,12 +270,12 @@ class Sidebar(QWidget):
 
         self.tg = _LinkRow("Telegram-сообщество", theme.ICON_TELEGRAM,
                            k=k, parent=self)
-        self.tg.move(round(20 * k), round(392 * k))
+        self.tg.move(round(20 * k), round(414 * k))
         self.tg.clicked.connect(self._open_telegram)
 
         self.btn_packs = _LinkRow("Скачать текстурпак", theme.ICON_PACK,
                                   k=k, parent=self)
-        self.btn_packs.move(round(20 * k), round(428 * k))
+        self.btn_packs.move(round(20 * k), round(450 * k))
         self.btn_packs.clicked.connect(self._open_resource_packs)
 
         # карточка аккаунта
@@ -351,14 +352,14 @@ class Sidebar(QWidget):
 
         # разделители секций
         p.setPen(QPen(QColor("#1d1e23")))
-        p.drawLine(round(16 * k), round(344 * k), round(216 * k),
-                   round(344 * k))
-        p.drawLine(round(16 * k), round(478 * k), round(216 * k),
-                   round(478 * k))
+        p.drawLine(round(16 * k), round(368 * k), round(216 * k),
+                   round(368 * k))
+        p.drawLine(round(16 * k), round(502 * k), round(216 * k),
+                   round(502 * k))
 
         cf = theme.font(10 * k, w(700))
         cf.setLetterSpacing(QFont.AbsoluteSpacing, 1.4 * k)
-        draw_base(p, 22 * k, 370 * k, "СООБЩЕСТВО", cf, "#62666e",
+        draw_base(p, 22 * k, 394 * k, "СООБЩЕСТВО", cf, "#62666e",
                   wide=round(180 * k))
 
         # карточка аккаунта

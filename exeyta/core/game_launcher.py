@@ -35,7 +35,14 @@ class GameWorker(QThread):
         self._cancelled = True
         try:
             if self._proc and self._proc.poll() is None:
-                self._proc.terminate()
+                if os.name == "nt":
+                    # terminate() kills only cmd.exe; the game is its child.
+                    subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(self._proc.pid)],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        creationflags=CREATE_NO_WINDOW, timeout=10)
+                else:
+                    self._proc.terminate()
         except Exception:
             pass
 
